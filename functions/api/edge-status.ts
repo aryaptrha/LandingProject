@@ -1,18 +1,6 @@
-interface CfProperties {
-  colo?: string
-  country?: string
-  city?: string
-  continent?: string
-  timezone?: string
-  tlsVersion?: string
-  httpProtocol?: string
-}
-
-interface Env {}
-
-export const onRequest: PagesFunction<Env> = async (context) => {
+export const onRequest: PagesFunction = async (context) => {
   const { request } = context
-  const cf = (request.cf ?? {}) as CfProperties
+  const cf = (request as any).cf ?? {}
 
   const data = {
     status: 'online',
