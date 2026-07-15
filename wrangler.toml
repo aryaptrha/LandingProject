@@ -1,6 +1,8 @@
-name = 'x'
+name = "aryaptrha-portfolio"
 
 compatibility_date = "2026-07-15"
+
+main = "src/worker/index.ts"
 
 [assets]
 directory = "./dist"

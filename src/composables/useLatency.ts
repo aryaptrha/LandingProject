@@ -42,7 +42,7 @@ export function useLatency(interval = 20000, timeout = 5000) {
     const start = performance.now()
 
     try {
-      const response = await fetch('/api/edge-status', {
+      const response = await fetch('/api/latency', {
         signal: currentController.signal,
         cache: 'no-store',
       })
@@ -52,7 +52,11 @@ export function useLatency(interval = 20000, timeout = 5000) {
       }
 
       // Consume body to complete the full round trip
-      await response.json()
+      const json = await response.json() as { success: boolean; data?: unknown; error?: { message: string } }
+
+      if (!json.success) {
+        throw new Error(json.error?.message ?? 'Measurement failed')
+      }
 
       const end = performance.now()
       const ms = Math.round(end - start)

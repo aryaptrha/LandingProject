@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useEdgeStatus } from '@/composables/useEdgeStatus'
 import { useLatency } from '@/composables/useLatency'
 
@@ -13,7 +13,13 @@ function handleResize() {
   isMobile.value = window.innerWidth < 768
 }
 
-window.addEventListener('resize', handleResize)
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
 
 const lastUpdated = computed(() => {
   if (!data.value?.timestamp) return '—'

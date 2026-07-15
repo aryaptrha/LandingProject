@@ -1,39 +1,32 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
-export interface EdgeStatusData {
-  status: string
-  server: string
-  colo: string
+export interface VisitorData {
   country: string
-  countryCode: string
   city: string
   continent: string
   timezone: string
-  protocol: string
-  tlsVersion: string
-  ray: string
-  timestamp: string
-  cacheStatus: string
+  language: string
+  colo: string
 }
 
-export function useEdgeStatus(refreshInterval = 30000) {
-  const data = ref<EdgeStatusData | null>(null)
+export function useVisitor(refreshInterval = 60000) {
+  const data = ref<VisitorData | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   let intervalId: ReturnType<typeof setInterval> | null = null
 
-  async function fetchStatus() {
+  async function fetchVisitor() {
     isLoading.value = true
     error.value = null
 
     try {
-      const response = await fetch('/api/edge-status')
+      const response = await fetch('/api/visitor')
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`)
       }
 
-      const json = await response.json() as { success: boolean; data?: EdgeStatusData; error?: { message: string } }
+      const json = await response.json() as { success: boolean; data?: VisitorData; error?: { message: string } }
 
       if (!json.success || !json.data) {
         throw new Error(json.error?.message ?? 'Unknown error')
@@ -41,7 +34,7 @@ export function useEdgeStatus(refreshInterval = 30000) {
 
       data.value = json.data
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to fetch edge status'
+      error.value = e instanceof Error ? e.message : 'Failed to fetch visitor info'
       data.value = null
     } finally {
       isLoading.value = false
@@ -50,7 +43,7 @@ export function useEdgeStatus(refreshInterval = 30000) {
 
   function startAutoRefresh() {
     stopAutoRefresh()
-    intervalId = setInterval(fetchStatus, refreshInterval)
+    intervalId = setInterval(fetchVisitor, refreshInterval)
   }
 
   function stopAutoRefresh() {
@@ -61,7 +54,7 @@ export function useEdgeStatus(refreshInterval = 30000) {
   }
 
   onMounted(() => {
-    fetchStatus()
+    fetchVisitor()
     startAutoRefresh()
   })
 
@@ -73,6 +66,6 @@ export function useEdgeStatus(refreshInterval = 30000) {
     data,
     isLoading,
     error,
-    refresh: fetchStatus,
+    refresh: fetchVisitor,
   }
 }
