@@ -1,0 +1,77 @@
+/* Design System: 2D Pixel × Glass UI × Pastel Theme */
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Pixelify+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Background */
+  --bg-primary: #F8F6F2;
+  --bg-secondary: #F3EFE8;
+  --bg-soft: #FAFAF7;
+
+  /* Pastel Blue */
+  --blue-main: #A9D6E5;
+  --blue-light: #D6EEF5;
+
+  /* Pastel Green */
+  --green-main: #B8E0C8;
+  --green-light: #DFF4E7;
+
+  /* Pastel Pink */
+  --pink-main: #F6C6D3;
+  --pink-light: #FCE6EC;
+
+  /* Pastel Yellow */
+  --yellow-main: #F7E4A8;
+  --yellow-light: #FCF5D6;
+
+  /* Lavender */
+  --lavender-main: #D9C8F1;
+  --lavender-light: #EFE7FA;
+
+  /* Neutral */
+  --text-dark: #2F2F2F;
+  --text-medium: #666666;
+  --border: #D8D8D8;
+  --divider: #EAEAEA;
+
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.25);
+  --glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --glass-blur: blur(12px);
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 40px;
+  --space-3xl: 48px;
+  --space-4xl: 64px;
+
+  /* Radius */
+  --radius-lg: 20px;
+  --radius-btn: 16px;
+  --radius-input: 14px;
+  --radius-badge: 999px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--text-dark);
+  background: var(--bg-primary);
+  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
