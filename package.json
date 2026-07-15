@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
-    "cf": "wrangler pages dev dist",
-    "deploy": "wrangler pages deploy dist"
+    "cf": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "vue": "^3.5.38"
@@ -29,6 +29,6 @@
     "wrangler": "^4.110.0"
   },
   "engines": {
-    "node": "^22.18.0 || >=24.12.0"
+    "node": ">=22"
   }
 }
