@@ -16,7 +16,7 @@ const menuItems = [
     description: 'A personal website built in HTML, CSS, and Vanilla JavaScript, showcasing my portfolio and projects. It is designed to be fast, responsive, and accessible.',
     icon: IconDesign,
     color: '#FCE6EC',
-    link: 'https://trypho.fun',
+    link: 'https://aryaptrha.github.io/yaya/',
     disabled: false,
   },
   {
