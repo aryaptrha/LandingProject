@@ -87,11 +87,19 @@ function renderFormattedText(content: string): string {
       <!-- Bubble Content -->
       <div class="message-item__bubble">
         <!-- Typing / Loading indicator when waiting for endpoint response -->
-        <div v-if="message.status === 'sending' && !message.content" class="typing-indicator">
-          <span class="typing-text">Arya lagi ngetik...</span>
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
+        <div v-if="message.status === 'sending' && !message.content" class="typing-wrapper">
+          <div class="typing-indicator">
+            <span class="typing-text">Arya lagi ngetik...</span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+
+          <!-- Awkward notification for free tier delay after 2 minutes -->
+          <div v-if="message.isSlow" class="awkward-notice" role="alert">
+            <span class="awkward-notice__emoji">😅</span>
+            <span class="awkward-notice__text">Maaf yah saya pengguna free tier jadi ada aja masalah begini</span>
+          </div>
         </div>
 
         <!-- Normal message text with inline formatting -->
@@ -303,5 +311,36 @@ function renderFormattedText(content: string): string {
   40% {
     transform: translateY(-5px);
   }
+}
+
+.typing-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.awkward-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--yellow-light, #FCF5D6);
+  border: 1px solid var(--yellow-main, #F7E4A8);
+  border-radius: 10px;
+  font-size: 0.8rem;
+  color: var(--text-dark, #2F2F2F);
+  animation: fadeIn 0.2s ease-out;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.awkward-notice__emoji {
+  font-size: 1rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.awkward-notice__text {
+  font-weight: 600;
+  line-height: 1.35;
 }
 </style>

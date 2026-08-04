@@ -6,6 +6,7 @@ export interface ChatMessage {
   content: string
   timestamp: string
   status?: 'sending' | 'error' | 'sent'
+  isSlow?: boolean
 }
 
 const STORAGE_KEYS = {
@@ -37,7 +38,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: 'welcome-1',
     role: 'assistant',
-    content: 'Halo! Aku Arya 👋. Senang bisa ngobrol! Kamu bisa tanya tentang proyekku, ide game dev, web dev, atau sekadar menyapa.',
+    content: 'Halo! Aku Arya 👋. Senang bisa ngobrol! tanyain apaan aja kak bebas ini mah, tentang saya boleh, tanya pacar saya siapa boleh, tanya kapan kiamat jangan, curhat bolehhh.',
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     status: 'sent',
   },
@@ -155,9 +156,18 @@ export function useChat() {
       content: '',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'sending',
+      isSlow: false,
     }
 
     messages.value.push(assistantMsg)
+
+    // Set a 2-minute (120,000 ms) timer to trigger awkward notification if loading takes too long
+    let slowTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      const targetMsg = messages.value.find((m) => m.id === assistantMsgId)
+      if (targetMsg && targetMsg.status === 'sending') {
+        targetMsg.isSlow = true
+      }
+    }, 120000)
 
     try {
       const headers: Record<string, string> = {
@@ -211,6 +221,10 @@ export function useChat() {
         targetMsg.status = 'error'
       }
     } finally {
+      if (slowTimer) {
+        clearTimeout(slowTimer)
+        slowTimer = null
+      }
       isLoading.value = false
     }
   }
