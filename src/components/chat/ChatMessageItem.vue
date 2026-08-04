@@ -86,8 +86,9 @@ function renderFormattedText(content: string): string {
 
       <!-- Bubble Content -->
       <div class="message-item__bubble">
-        <!-- Typing indicator when sending/loading empty content -->
+        <!-- Typing / Loading indicator when waiting for endpoint response -->
         <div v-if="message.status === 'sending' && !message.content" class="typing-indicator">
+          <span class="typing-text">Tunggu bentar lagi dijawab...</span>
           <span class="dot"></span>
           <span class="dot"></span>
           <span class="dot"></span>
@@ -267,8 +268,14 @@ function renderFormattedText(content: string): string {
 .typing-indicator {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   padding: 4px 2px;
+}
+
+.typing-text {
+  font-size: 0.85rem;
+  color: var(--text-medium);
+  font-style: italic;
 }
 
 .typing-indicator .dot {
