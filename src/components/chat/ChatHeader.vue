@@ -28,12 +28,12 @@ const emit = defineEmits<{
 
       <div class="chat-header__info">
         <div class="chat-header__title-row">
-          <h2 class="chat-header__title">Arya's AI Persona</h2>
+          <h2 class="chat-header__title">Arya</h2>
           <span class="online-indicator" title="Online">
             <span class="online-dot"></span>
           </span>
         </div>
-        <p class="chat-header__subtitle">Online • Ask me anything</p>
+        <p class="chat-header__subtitle">Online • Direct Chat</p>
       </div>
     </div>
 

@@ -47,7 +47,7 @@ function renderFormattedText(content: string): string {
     }"
   >
     <!-- Avatar -->
-    <div class="message-item__avatar" :title="message.role === 'user' ? 'You' : 'AI Persona'">
+    <div class="message-item__avatar" :title="message.role === 'user' ? 'You' : 'Arya'">
       <!-- Assistant Pixel Avatar -->
       <svg v-if="message.role === 'assistant'" viewBox="0 0 16 16" width="24" height="24" class="pixel-art">
         <rect width="16" height="16" fill="#D9C8F1" rx="3" />
@@ -79,7 +79,7 @@ function renderFormattedText(content: string): string {
     <div class="message-item__body">
       <div class="message-item__meta">
         <span class="message-item__sender">
-          {{ message.role === 'user' ? 'You' : 'Arya\'s AI' }}
+          {{ message.role === 'user' ? 'You' : 'Arya' }}
         </span>
         <span class="message-item__time">{{ message.timestamp }}</span>
       </div>
@@ -88,7 +88,7 @@ function renderFormattedText(content: string): string {
       <div class="message-item__bubble">
         <!-- Typing / Loading indicator when waiting for endpoint response -->
         <div v-if="message.status === 'sending' && !message.content" class="typing-indicator">
-          <span class="typing-text">Tunggu bentar lagi dijawab...</span>
+          <span class="typing-text">Arya lagi ngetik...</span>
           <span class="dot"></span>
           <span class="dot"></span>
           <span class="dot"></span>

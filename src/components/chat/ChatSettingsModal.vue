@@ -61,7 +61,7 @@ function handleReset() {
           <svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" class="modal-icon">
             <path d="M8 0a1.5 1.5 0 0 1 1.5 1.5v.6a6.002 6.002 0 0 1 2.24 1.3l.53-.3a1.5 1.5 0 0 1 2.05.55l.75 1.3a1.5 1.5 0 0 1-.55 2.05l-.52.3a6.03 6.03 0 0 1 0 2.6l.52.3a1.5 1.5 0 0 1 .55 2.05l-.75 1.3a1.5 1.5 0 0 1-2.05.55l-.53-.3a6.002 6.002 0 0 1-2.24 1.3v.6A1.5 1.5 0 0 1 8 16a1.5 1.5 0 0 1-1.5-1.5v-.6a6.002 6.002 0 0 1-2.24-1.3l-.53.3a1.5 1.5 0 0 1-2.05-.55l-.75-1.3a1.5 1.5 0 0 1 .55-2.05l.52-.3a6.03 6.03 0 0 1 0-2.6l-.52-.3a1.5 1.5 0 0 1-.55-2.05l.75-1.3a1.5 1.5 0 0 1 2.05-.55l.53.3A6.002 6.002 0 0 1 6.5 2.1v-.6A1.5 1.5 0 0 1 8 0zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>
           </svg>
-          <h3>Persona API Settings</h3>
+          <h3 style="margin:0;">Chat API Settings</h3>
         </div>
         <button class="close-btn" @click="emit('close')" type="button">✕</button>
       </header>

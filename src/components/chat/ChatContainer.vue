@@ -27,8 +27,8 @@ function toggleChat() {
       :class="{ 'chat-launcher--active': isOpen }"
       @click="toggleChat"
       type="button"
-      aria-label="Toggle Persona AI Chat"
-      :title="isOpen ? 'Close Chat' : 'Chat with Arya\'s AI Persona'"
+      aria-label="Toggle Chat with Arya"
+      :title="isOpen ? 'Close Chat' : 'Chat dengan Arya'"
     >
       <div class="chat-launcher__avatar">
         <svg viewBox="0 0 16 16" width="22" height="22" class="pixel-art">
@@ -45,13 +45,13 @@ function toggleChat() {
           <rect x="3" y="11" width="10" height="4" fill="#B8E0C8" />
         </svg>
       </div>
-      <span class="chat-launcher__label">Chat with me</span>
+      <span class="chat-launcher__label">Chat Arya</span>
       <span class="chat-launcher__dot"></span>
     </button>
 
     <!-- Floating Chat Window -->
     <Transition name="chat-popup-anim">
-      <section v-if="isOpen" class="chat-popup" role="dialog" aria-label="Personal AI Chat Window">
+      <section v-if="isOpen" class="chat-popup" role="dialog" aria-label="Chat Window with Arya">
         <!-- Header -->
         <ChatHeader
           @close="isOpen = false"

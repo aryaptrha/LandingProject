@@ -37,7 +37,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: 'welcome-1',
     role: 'assistant',
-    content: 'Halo! Aku AI Persona Arya 🌸. Senang bertemu denganku! Kamu bisa tanya tentang proyek, ide game dev, web dev, atau sekadar menyapa.',
+    content: 'Halo! Aku Arya 👋. Senang bisa ngobrol! Kamu bisa tanya tentang proyekku, ide game dev, web dev, atau sekadar menyapa.',
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     status: 'sent',
   },
@@ -109,7 +109,7 @@ export function useChat() {
       {
         id: `welcome-${Date.now()}`,
         role: 'assistant',
-        content: 'Percakapan telah dibersihkan! Ada yang bisa aku bantu lagi?',
+        content: 'Pesan telah dibersihkan! Ada yang mau kamu tanyakan lagi ke aku?',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: 'sent',
       },
@@ -192,7 +192,7 @@ export function useChat() {
       }
 
       if (!replyContent) {
-        replyContent = '(Empty response received from persona API)'
+        replyContent = '(Tidak ada respon yang diterima)'
       }
 
       // Find and update assistant message content
@@ -202,12 +202,12 @@ export function useChat() {
         targetMsg.status = 'sent'
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Failed to connect to persona endpoint'
+      const errMsg = err instanceof Error ? err.message : 'Gagal terhubung ke endpoint chat'
       error.value = errMsg
 
       const targetMsg = messages.value.find((m) => m.id === assistantMsgId)
       if (targetMsg) {
-        targetMsg.content = `⚠️ Maaf, gagal terhubung ke endpoint (${errMsg}). Silakan periksa URL endpoint di Settings.`
+        targetMsg.content = `⚠️ Maaf, gagal terhubung ke server (${errMsg}). Silakan periksa koneksi atau URL endpoint di Settings.`
         targetMsg.status = 'error'
       }
     } finally {
