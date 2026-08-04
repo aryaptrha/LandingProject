@@ -133,10 +133,12 @@ export function useChat() {
     // 2. Prepare payload matching exact required schema:
     // { "messages": [ { "role": "user", "content": "..." }, ... ] }
     const apiPayload = {
-      messages: messages.value.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
+      messages: messages.value
+        .filter((m) => m.status === 'sent' && m.content.trim().length > 0)
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
     }
 
     isLoading.value = true
@@ -209,14 +211,14 @@ export function useChat() {
     }
   }
 
-  // Parse various potential AI API payload response schemas
+  // Parse API payload response schema: {"success": true, "reply": "the answer"}
   function parseApiResponse(data: any): string {
     if (!data) return ''
     if (typeof data === 'string') return data
 
-    // Check data.reply / data.data.reply (Hono custom worker response)
-    if (data.reply) return data.reply
-    if (data.data && data.data.reply) return data.data.reply
+    // Check {"success": true, "reply": "..."} or {"reply": "..."}
+    if (typeof data.reply === 'string') return data.reply
+    if (data.data && typeof data.data.reply === 'string') return data.data.reply
 
     // Check data.messages array
     if (Array.isArray(data.messages) && data.messages.length > 0) {
@@ -236,7 +238,7 @@ export function useChat() {
       if (choice.text) return choice.text
     }
 
-    // Single message object
+    // Single message object / fallbacks
     if (data.message && data.message.content) return data.message.content
     if (data.response) return typeof data.response === 'string' ? data.response : JSON.stringify(data.response)
     if (data.content) return typeof data.content === 'string' ? data.content : JSON.stringify(data.content)

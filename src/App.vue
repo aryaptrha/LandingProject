@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import MenuCard from './components/MenuCard.vue'
 import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
 import EdgeNetworkVisualization from './components/EdgeNetworkVisualization.vue'
@@ -11,18 +10,7 @@ import IconMobile from './components/icons/IconMobile.vue'
 import IconDesign from './components/icons/IconDesign.vue'
 import IconOpenSource from './components/icons/IconOpenSource.vue'
 
-const activeTab = ref<'projects' | 'chat'>('chat')
-
 const menuItems = [
-  {
-    title: 'Personal AI Chat',
-    description: 'Chat directly with my AI persona! Powered by customizable AI endpoints with pixel art aesthetics and real-time responses.',
-    icon: IconDesign,
-    color: '#D9C8F1',
-    link: '#',
-    disabled: false,
-    action: () => { activeTab.value = 'chat' }
-  },
   {
     title: 'Personal Website',
     description: 'A personal website built in HTML, CSS, and Vanilla JavaScript, showcasing my portfolio and projects. It is designed to be fast, responsive, and accessible.',
@@ -71,46 +59,15 @@ const menuItems = [
     <header class="landing__header">
       <h1 class="landing__title">aryaptrha Projects</h1>
       <p class="landing__subtitle">A cozy collection of things I've built and explored.</p>
-
-      <!-- Navigation Tabs -->
-      <nav class="landing__nav" aria-label="Main Navigation">
-        <button
-          class="nav-tab"
-          :class="{ 'nav-tab--active': activeTab === 'chat' }"
-          @click="activeTab = 'chat'"
-          type="button"
-        >
-          <span class="nav-tab__icon">💬</span>
-          <span>Personal AI Chat</span>
-        </button>
-
-        <button
-          class="nav-tab"
-          :class="{ 'nav-tab--active': activeTab === 'projects' }"
-          @click="activeTab = 'projects'"
-          type="button"
-        >
-          <span class="nav-tab__icon">🎮</span>
-          <span>Projects</span>
-        </button>
-      </nav>
     </header>
 
-    <!-- Main View Switch -->
+    <!-- Main Projects View -->
     <main class="landing__content">
-      <!-- AI Chat View -->
-      <section v-if="activeTab === 'chat'" class="view-section">
-        <ChatContainer />
-      </section>
-
-      <!-- Projects View -->
-      <section v-else class="view-section">
+      <section class="view-section">
         <div class="landing__grid" role="list">
           <div
             v-for="(item, index) in menuItems"
             :key="index"
-            @click="item.action ? item.action() : null"
-            :style="{ cursor: item.action ? 'pointer' : 'default' }"
           >
             <MenuCard
               :title="item.title"
@@ -129,6 +86,8 @@ const menuItems = [
     </main>
   </div>
 
+  <!-- Floating Widgets -->
+  <ChatContainer />
   <LatencyIndicator />
   <CloudflareEdgeStatus />
 </template>

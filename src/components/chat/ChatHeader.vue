@@ -1,12 +1,7 @@
 <script setup lang="ts">
-defineProps<{
-  endpointUrl: string
-  isCustomEndpoint: boolean
-}>()
-
 const emit = defineEmits<{
-  (e: 'open-settings'): void
   (e: 'clear-chat'): void
+  (e: 'close'): void
 }>()
 </script>
 
@@ -46,35 +41,30 @@ const emit = defineEmits<{
             Online
           </span>
         </div>
-        <p class="chat-header__subtitle">
-          Endpoint:
-          <code class="endpoint-code" :title="endpointUrl">
-            {{ isCustomEndpoint ? 'Custom API' : '/api/chat' }}
-          </code>
-        </p>
+        <p class="chat-header__subtitle">Ask me anything about my work & projects!</p>
       </div>
     </div>
 
     <div class="chat-header__actions">
-      <button
-        class="icon-button"
-        title="Settings & Endpoint Configuration"
-        @click="emit('open-settings')"
-        type="button"
-      >
-        <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor">
-          <path d="M8 0a1.5 1.5 0 0 1 1.5 1.5v.6a6.002 6.002 0 0 1 2.24 1.3l.53-.3a1.5 1.5 0 0 1 2.05.55l.75 1.3a1.5 1.5 0 0 1-.55 2.05l-.52.3a6.03 6.03 0 0 1 0 2.6l.52.3a1.5 1.5 0 0 1 .55 2.05l-.75 1.3a1.5 1.5 0 0 1-2.05.55l-.53-.3a6.002 6.002 0 0 1-2.24 1.3v.6A1.5 1.5 0 0 1 8 16a1.5 1.5 0 0 1-1.5-1.5v-.6a6.002 6.002 0 0 1-2.24-1.3l-.53.3a1.5 1.5 0 0 1-2.05-.55l-.75-1.3a1.5 1.5 0 0 1 .55-2.05l.52-.3a6.03 6.03 0 0 1 0-2.6l-.52-.3a1.5 1.5 0 0 1-.55-2.05l.75-1.3a1.5 1.5 0 0 1 2.05-.55l.53.3A6.002 6.002 0 0 1 6.5 2.1v-.6A1.5 1.5 0 0 1 8 0zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>
-        </svg>
-      </button>
-
       <button
         class="icon-button icon-button--danger"
         title="Clear Chat History"
         @click="emit('clear-chat')"
         type="button"
       >
-        <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
           <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zm3 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zm3 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5z"/>
+        </svg>
+      </button>
+
+      <button
+        class="icon-button"
+        title="Close Chat"
+        @click="emit('close')"
+        type="button"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+          <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
         </svg>
       </button>
     </div>
