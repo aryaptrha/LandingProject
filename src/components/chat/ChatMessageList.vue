@@ -15,10 +15,10 @@ const emit = defineEmits<{
 const listRef = ref<HTMLElement | null>(null)
 
 const starterPrompts = [
-  'Kamu siapa sih ganteng?',
-  'Proyek apa aja yang pernah Arya buat?',
-  'Bisa ceritain tentang game dev prototype-mu?',
-  'Apa stack favoritmu untuk web development?',
+  'Who are you?',
+  'What projects have you built?',
+  'Tell me about your tech stack',
+  'How can I connect with Arya?',
 ]
 
 function scrollToBottom() {

@@ -14,7 +14,7 @@ const STORAGE_KEYS = {
   MESSAGES: 'persona_chat_messages',
 }
 
-function getDefaultEndpoint(): string {
+function getActiveEndpoint(): string {
   const envUrl = import.meta.env.VITE_PERSONA_API_URL
   if (envUrl && envUrl.trim()) {
     const cleanUrl = envUrl.trim().replace(/\/$/, '')
@@ -23,10 +23,14 @@ function getDefaultEndpoint(): string {
     }
     return `${cleanUrl}/api/chat`
   }
+  const saved = localStorage.getItem(STORAGE_KEYS.ENDPOINT)
+  if (saved && saved.trim()) {
+    return saved.trim()
+  }
   return '/api/chat'
 }
 
-const DEFAULT_ENDPOINT = getDefaultEndpoint()
+const DEFAULT_ENDPOINT = getActiveEndpoint()
 const DEFAULT_API_KEY = import.meta.env.VITE_API_KEY || ''
 
 const INITIAL_MESSAGES: ChatMessage[] = [
@@ -40,7 +44,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
 ]
 
 export function useChat() {
-  const endpointUrl = ref<string>(localStorage.getItem(STORAGE_KEYS.ENDPOINT) || DEFAULT_ENDPOINT)
+  const endpointUrl = ref<string>(getActiveEndpoint())
   const apiKey = ref<string>(localStorage.getItem(STORAGE_KEYS.API_KEY) || DEFAULT_API_KEY)
   const messages = ref<ChatMessage[]>([])
   const isLoading = ref<boolean>(false)

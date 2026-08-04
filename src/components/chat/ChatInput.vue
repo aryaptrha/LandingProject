@@ -43,7 +43,7 @@ function adjustHeight() {
         ref="textareaRef"
         v-model="inputText"
         class="chat-input"
-        placeholder="Ketik pesan untuk AI Persona... (Enter untuk kirim, Shift+Enter baris baru)"
+        placeholder="Type a message... (Enter to send)"
         rows="1"
         :disabled="isLoading"
         @keydown="handleKeyDown"

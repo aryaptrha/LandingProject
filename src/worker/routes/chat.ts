@@ -20,34 +20,46 @@ chat.post('/chat', async (c) => {
       return error('Invalid request format. Expected { messages: [{ role, content }] }', 'BAD_REQUEST', 400)
     }
 
-    const lastUserMessage = [...body.messages].reverse().find(m => m.role === 'user')?.content || ''
+    // Check if worker environment has an external Persona API target URL configured
+    const envApiUrl = (c.env as any)?.PERSONA_API_URL || (c.env as any)?.VITE_PERSONA_API_URL
+    if (envApiUrl && typeof envApiUrl === 'string' && envApiUrl.trim()) {
+      const cleanUrl = envApiUrl.trim().replace(/\/$/, '')
+      const targetUrl = cleanUrl.endsWith('/api/chat') ? cleanUrl : `${cleanUrl}/api/chat`
 
-    // Friendly persona responses (Arya's AI Persona)
-    let replyContent = "Halo! Aku AI Persona Arya. Senang bisa mengobrol denganmu! Ada yang bisa aku bantu?"
+      try {
+        const extRes = await fetch(targetUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
 
-    const lowerMsg = lastUserMessage.toLowerCase()
-
-    if (lowerMsg.includes('kamu siapa') || lowerMsg.includes('siapa sih')) {
-      replyContent = "Aku adalah AI Persona dari Arya (aryaptrha)! 🚀 Aku diprogram untuk mewakili persona Arya: ramah, suka game dev, web dev, dan karya-karya piksel yang cozy!"
-    } else if (lowerMsg.includes('ganteng') || lowerMsg.includes('keren')) {
-      replyContent = "Makasih banget pujiannya! 😊 Kamu juga luar biasa! Ada proyek menarik apa yang lagi kamu kerjakan?"
-    } else if (lowerMsg.includes('project') || lowerMsg.includes('proyek') || lowerMsg.includes('buat apa')) {
-      replyContent = "Arya sudah membuat berbagai proyek keren! Seperti Personal Portfolio Website, Game Prototype Unity di itch.io, Fullstack Kecha App, dan Cloudflare Worker landing page ini!"
-    } else if (lowerMsg.includes('halo') || lowerMsg.includes('hi') || lowerMsg.includes('hey')) {
-      replyContent = "Halo kawan! Selamat datang di room chat persona Arya. Gimana harimu sejauh ini?"
-    } else {
-      replyContent = `Terima kasih pesannya! [Persona AI]: Aku menerima pesanmu "${lastUserMessage}". Sebagai persona AI Arya, aku selalu siap berdiskusi soal teknologi, desain piksel, atau ide-ide kreatif!`
+        const extContentType = extRes.headers.get('content-type') || ''
+        if (extContentType.includes('application/json')) {
+          const extJson = await extRes.json()
+          return c.json(extJson, extRes.status as any)
+        }
+        const extText = await extRes.text()
+        return c.json({ success: true, reply: extText }, extRes.status as any)
+      } catch (proxyErr) {
+        console.error('Error forwarding to external persona API:', proxyErr)
+      }
     }
 
-    return success({
+    const lastUserMessage = [...body.messages].reverse().find(m => m.role === 'user')?.content || ''
+
+    // Local fallback response when no external persona endpoint URL is active
+    const replyContent = `Pesan diterima: "${lastUserMessage}". [Catatan: Set VITE_PERSONA_API_URL di environment variables untuk menghubungkan ke AI Backend live!]`
+
+    return c.json({
+      success: true,
+      reply: replyContent,
       messages: [
         ...body.messages,
         {
           role: 'assistant',
           content: replyContent
         }
-      ],
-      reply: replyContent
+      ]
     })
   } catch (err) {
     return error(err instanceof Error ? err.message : 'Internal Server Error', 'SERVER_ERROR', 500)
