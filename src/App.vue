@@ -1,16 +1,28 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import MenuCard from './components/MenuCard.vue'
 import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
 import EdgeNetworkVisualization from './components/EdgeNetworkVisualization.vue'
 import LatencyIndicator from './components/LatencyIndicator.vue'
-import IconWebDev from './components/icons/IconWebDev.vue'
+import ChatContainer from './components/chat/ChatContainer.vue'
 import IconGameDev from './components/icons/IconGameDev.vue'
 import IconBackend from './components/icons/IconBackend.vue'
 import IconMobile from './components/icons/IconMobile.vue'
 import IconDesign from './components/icons/IconDesign.vue'
 import IconOpenSource from './components/icons/IconOpenSource.vue'
 
+const activeTab = ref<'projects' | 'chat'>('chat')
+
 const menuItems = [
+  {
+    title: 'Personal AI Chat',
+    description: 'Chat directly with my AI persona! Powered by customizable AI endpoints with pixel art aesthetics and real-time responses.',
+    icon: IconDesign,
+    color: '#D9C8F1',
+    link: '#',
+    disabled: false,
+    action: () => { activeTab.value = 'chat' }
+  },
   {
     title: 'Personal Website',
     description: 'A personal website built in HTML, CSS, and Vanilla JavaScript, showcasing my portfolio and projects. It is designed to be fast, responsive, and accessible.',
@@ -46,14 +58,6 @@ const menuItems = [
   {
     title: 'Soon',
     description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-    icon: IconDesign,
-    color: '#FCE6EC',
-    link: '',
-    disabled: true,
-  },
-  {
-    title: 'Soon',
-    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
     icon: IconOpenSource,
     color: '#DFF4E7',
     link: '',
@@ -67,23 +71,62 @@ const menuItems = [
     <header class="landing__header">
       <h1 class="landing__title">aryaptrha Projects</h1>
       <p class="landing__subtitle">A cozy collection of things I've built and explored.</p>
+
+      <!-- Navigation Tabs -->
+      <nav class="landing__nav" aria-label="Main Navigation">
+        <button
+          class="nav-tab"
+          :class="{ 'nav-tab--active': activeTab === 'chat' }"
+          @click="activeTab = 'chat'"
+          type="button"
+        >
+          <span class="nav-tab__icon">💬</span>
+          <span>Personal AI Chat</span>
+        </button>
+
+        <button
+          class="nav-tab"
+          :class="{ 'nav-tab--active': activeTab === 'projects' }"
+          @click="activeTab = 'projects'"
+          type="button"
+        >
+          <span class="nav-tab__icon">🎮</span>
+          <span>Projects</span>
+        </button>
+      </nav>
     </header>
 
-    <main class="landing__grid" role="list">
-      <MenuCard
-        v-for="(item, index) in menuItems"
-        :key="index"
-        :title="item.title"
-        :description="item.description"
-        :icon="item.icon"
-        :color="item.color"
-        :link="item.link"
-        :disabled="item.disabled"
-        role="listitem"
-      />
-    </main>
+    <!-- Main View Switch -->
+    <main class="landing__content">
+      <!-- AI Chat View -->
+      <section v-if="activeTab === 'chat'" class="view-section">
+        <ChatContainer />
+      </section>
 
-    <EdgeNetworkVisualization />
+      <!-- Projects View -->
+      <section v-else class="view-section">
+        <div class="landing__grid" role="list">
+          <div
+            v-for="(item, index) in menuItems"
+            :key="index"
+            @click="item.action ? item.action() : null"
+            :style="{ cursor: item.action ? 'pointer' : 'default' }"
+          >
+            <MenuCard
+              :title="item.title"
+              :description="item.description"
+              :icon="item.icon"
+              :color="item.color"
+              :link="item.link"
+              :disabled="item.disabled"
+              role="listitem"
+            />
+          </div>
+        </div>
+
+        <EdgeNetworkVisualization class="grid-spacing" />
+      </section>
+    </main>
   </div>
 
   <LatencyIndicator />
@@ -92,12 +135,15 @@ const menuItems = [
 
 <style scoped>
 .landing {
-  padding: var(--space-3xl) 0;
+  padding: var(--space-2xl) 0;
 }
 
 .landing__header {
   text-align: center;
-  margin-bottom: var(--space-3xl);
+  margin-bottom: var(--space-2xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .landing__title {
@@ -105,18 +151,80 @@ const menuItems = [
   font-size: 2.4rem;
   font-weight: 700;
   color: var(--text-dark);
-  margin-bottom: var(--space-sm);
+  margin-bottom: var(--space-xs);
 }
 
 .landing__subtitle {
   font-size: 1.05rem;
   color: var(--text-medium);
+  margin-bottom: var(--space-lg);
+}
+
+.landing__nav {
+  display: inline-flex;
+  gap: var(--space-xs);
+  padding: 5px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: var(--radius-badge);
+  box-shadow: var(--glass-shadow);
+}
+
+.nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: var(--radius-badge);
+  border: none;
+  background: transparent;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-medium);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-tab:hover {
+  color: var(--text-dark);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.nav-tab--active {
+  background: var(--blue-main);
+  color: var(--text-dark);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.landing__content {
+  width: 100%;
+}
+
+.view-section {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .landing__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-lg);
+}
+
+.grid-spacing {
+  margin-top: var(--space-2xl);
 }
 
 @media (min-width: 768px) {

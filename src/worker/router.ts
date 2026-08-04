@@ -3,6 +3,7 @@ import { edge } from './routes/edge'
 import { latency } from './routes/latency'
 import { visitor } from './routes/visitor'
 import { cache } from './routes/cache'
+import { chat } from './routes/chat'
 import { error } from './utils/response'
 
 const api = new Hono()
@@ -12,6 +13,7 @@ api.route('/api', edge)
 api.route('/api', latency)
 api.route('/api', visitor)
 api.route('/api', cache)
+api.route('/api', chat)
 
 // Catch-all for unknown API routes
 api.all('/api/*', () => {
