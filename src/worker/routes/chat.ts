@@ -48,7 +48,7 @@ chat.post('/chat', async (c) => {
     const lastUserMessage = [...body.messages].reverse().find(m => m.role === 'user')?.content || ''
 
     // Local fallback response when no external persona endpoint URL is active
-    const replyContent = `Pesan diterima: "${lastUserMessage}". [Catatan: Set VITE_PERSONA_API_URL di environment variables untuk menghubungkan ke AI Backend live!]`
+    const replyContent = `Halo! Pesan kamu "${lastUserMessage}" sudah diterima.`
 
     return c.json({
       success: true,

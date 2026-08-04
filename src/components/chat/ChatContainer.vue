@@ -17,10 +17,6 @@ const isOpen = ref(false)
 function toggleChat() {
   isOpen.value = !isOpen.value
 }
-
-function handleSelectStarter(text: string) {
-  sendMessage(text)
-}
 </script>
 
 <template>
@@ -35,7 +31,7 @@ function handleSelectStarter(text: string) {
       :title="isOpen ? 'Close Chat' : 'Chat with Arya\'s AI Persona'"
     >
       <div class="chat-launcher__avatar">
-        <svg viewBox="0 0 16 16" width="24" height="24" class="pixel-art">
+        <svg viewBox="0 0 16 16" width="22" height="22" class="pixel-art">
           <rect width="16" height="16" fill="#D9C8F1" rx="3" />
           <rect x="3" y="2" width="10" height="3" fill="#2F2F2F" />
           <rect x="2" y="4" width="2" height="4" fill="#2F2F2F" />
@@ -66,7 +62,6 @@ function handleSelectStarter(text: string) {
         <ChatMessageList
           :messages="messages"
           :is-loading="isLoading"
-          @select-starter="handleSelectStarter"
         />
 
         <!-- Input Bar -->
@@ -93,33 +88,33 @@ function handleSelectStarter(text: string) {
   z-index: 1001;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px 8px 10px;
+  gap: 8px;
+  padding: 8px 14px 8px 8px;
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
-  border: 2px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: 30px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.2s ease;
 }
 
 .chat-launcher:hover {
-  transform: translateY(-3px) scale(1.03);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.12);
   border-color: var(--blue-main);
 }
 
 .chat-launcher:active {
-  transform: translateY(0) scale(0.98);
+  transform: translateY(0);
 }
 
 .chat-launcher__avatar {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   background: var(--lavender-light);
   border-radius: 50%;
   overflow: hidden;
@@ -132,78 +127,61 @@ function handleSelectStarter(text: string) {
 
 .chat-launcher__label {
   font-family: 'Pixelify Sans', monospace;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--text-dark);
 }
 
 .chat-launcher__dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   background: #34c759;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.3);
-  animation: pulse-dot 2s infinite;
-}
-
-@keyframes pulse-dot {
-  0% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.7);
-  }
-  70% {
-    transform: scale(1);
-    box-shadow: 0 0 0 6px rgba(52, 199, 89, 0);
-  }
-  100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(52, 199, 89, 0);
-  }
+  box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.25);
 }
 
 /* Chat Popup Window */
 .chat-popup {
   position: fixed;
-  bottom: 76px;
+  bottom: 72px;
   left: 20px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  width: 380px;
-  height: 540px;
-  max-height: calc(100vh - 100px);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 2px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16);
+  width: 360px;
+  height: 500px;
+  max-height: calc(85vh - 60px);
+  background: #ffffff;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.14);
   overflow: hidden;
 }
 
 @media (max-width: 480px) {
   .chat-popup {
-    left: 12px;
-    right: 12px;
+    left: 10px;
+    right: 10px;
     width: auto;
-    bottom: 72px;
-    height: calc(100vh - 90px);
+    bottom: 68px;
+    height: calc(85vh - 50px);
   }
 
   .chat-launcher {
-    left: 12px;
-    bottom: 16px;
+    left: 10px;
+    bottom: 14px;
   }
 }
 
 /* Animations */
 .chat-popup-anim-enter-active,
 .chat-popup-anim-leave-active {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .chat-popup-anim-enter-from,
 .chat-popup-anim-leave-to {
   opacity: 0;
-  transform: translateY(16px) scale(0.95);
+  transform: translateY(12px) scale(0.96);
 }
 </style>

@@ -43,7 +43,7 @@ function adjustHeight() {
         ref="textareaRef"
         v-model="inputText"
         class="chat-input"
-        placeholder="Type a message... (Enter to send)"
+        placeholder="Type a message..."
         rows="1"
         :disabled="isLoading"
         @keydown="handleKeyDown"
@@ -55,12 +55,12 @@ function adjustHeight() {
         :disabled="!inputText.trim() || isLoading"
         @click="handleSend"
         type="button"
-        title="Kirim Pesan"
+        title="Send Message"
+        aria-label="Send message"
       >
         <span v-if="isLoading" class="send-btn__loading">...</span>
         <template v-else>
-          <span class="send-btn__text">Kirim</span>
-          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" class="send-btn__icon">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" class="send-btn__icon">
             <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.8 14.5a.5.5 0 0 1-.928.016l-3-5a.5.5 0 0 1 .09-.64l5-4.5a.5.5 0 0 0-.67-.74l-4.5 5a.5.5 0 0 1-.64.09l-5-3a.5.5 0 0 1 .016-.928L15.314.036a.5.5 0 0 1 .54.11z"/>
           </svg>
         </template>
@@ -71,29 +71,27 @@ function adjustHeight() {
 
 <style scoped>
 .chat-input-bar {
-  padding: var(--space-md) var(--space-lg);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border-top: var(--glass-border);
-  border-bottom-left-radius: var(--radius-lg);
-  border-bottom-right-radius: var(--radius-lg);
+  padding: 10px 12px;
+  background: #ffffff;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .chat-input-container {
   display: flex;
-  align-items: flex-end;
-  gap: var(--space-sm);
-  background: #ffffff;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-soft);
   border: 1px solid var(--border);
-  border-radius: var(--radius-input);
-  padding: 6px 8px 6px 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  border-radius: 20px;
+  padding: 4px 6px 4px 12px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .chat-input-container:focus-within {
   border-color: var(--blue-main);
-  box-shadow: 0 0 0 3px rgba(169, 216, 229, 0.25);
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(169, 216, 229, 0.3);
 }
 
 .chat-input {
@@ -102,16 +100,16 @@ function adjustHeight() {
   outline: none;
   background: transparent;
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   color: var(--text-dark);
   resize: none;
-  max-height: 120px;
-  line-height: 1.5;
-  padding: 6px 0;
+  max-height: 80px;
+  line-height: 1.4;
+  padding: 4px 0;
 }
 
 .chat-input::placeholder {
-  color: #a0a0a0;
+  color: #999999;
 }
 
 .chat-input:disabled {
@@ -122,44 +120,35 @@ function adjustHeight() {
 .send-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   background: var(--blue-main);
   border: none;
-  border-radius: 10px;
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  font-size: 0.9rem;
+  border-radius: 50%;
   color: var(--text-dark);
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   transition: all 0.15s ease;
-  height: 38px;
   flex-shrink: 0;
 }
 
 .send-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
+  transform: scale(1.05);
   background: #94cadc;
 }
 
 .send-btn:active:not(:disabled) {
-  transform: translateY(0);
+  transform: scale(0.95);
 }
 
 .send-btn:disabled {
   background: #e0e0e0;
-  color: #999999;
+  color: #aaaaaa;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
 .send-btn__loading {
+  font-size: 0.75rem;
   font-weight: bold;
-  letter-spacing: 2px;
-}
-
-.send-btn__icon {
-  margin-top: 1px;
 }
 </style>
