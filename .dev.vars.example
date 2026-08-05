@@ -1,0 +1,23 @@
+# Local worker vars for `wrangler dev`. Copy to `.dev.vars` and fill in.
+#
+#   cp .dev.vars.example .dev.vars
+#
+# `.dev.vars` is gitignored. These are worker-side vars, read through `env` — they
+# are NOT `VITE_*` vars. Never move a value from here into `.env` or a `VITE_`
+# name: Vite inlines those into the client bundle, which would publish the secret
+# to every visitor. In production these are set with `wrangler secret put <NAME>`,
+# not from this file.
+#
+# Storage bindings (DB, CACHE) do not belong here. They come from wrangler.toml and
+# are simulated locally by wrangler, so nothing needs configuring for them to work.
+
+# External Arya persona backend that /api/chat proxies to.
+PERSONA_API_URL=
+
+# Optional bearer token for that backend. Stays server-side.
+PERSONA_API_KEY=
+
+# Origin to present upstream if the backend enforces an allowlist. Only needed
+# locally: the worker's dev origin is http://127.0.0.1:8788, which the backend
+# rejects. In production the worker's own origin is correct, so leave it unset.
+PERSONA_ORIGIN=

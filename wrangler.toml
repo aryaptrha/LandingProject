@@ -6,6 +6,11 @@ main = "src/worker/index.ts"
 
 [assets]
 directory = "./dist"
+# Required for `env.ASSETS` to exist. Static files matching a request are served
+# before the worker runs, so the app loads without this — but src/worker/index.ts
+# falls back to `env.ASSETS.fetch()` for anything that matches no file, and that
+# throws on an undefined binding.
+binding = "ASSETS"
 
 # Must match the /api proxy target in vite.config.ts so the two-server dev
 # workflow (`npm run dev` + `wrangler dev`) works without a --port flag.
@@ -19,3 +24,38 @@ port = 8788
 #                      Defaults to the worker's own origin, which is right in
 #                      production; only needed in .dev.vars, where the worker
 #                      runs on 127.0.0.1 and would be rejected.
+
+# ---------------------------------------------------------------------------
+# Storage bindings
+#
+# The ids below are placeholders. They are deliberately valid in shape and
+# obviously fake in content: `wrangler dev` ignores them and keeps local state
+# under .wrangler/state, so `npm run cf` works on a fresh clone, while
+# `wrangler deploy` fails loudly until real ids are pasted in. That is the right
+# way round — a local dev server that just works, and a deploy that refuses to
+# pretend it has a database.
+#
+# To create the real resources and get their ids, see docs/DATA.md. Short version:
+#
+#   npx wrangler d1 create aryaptrha-portfolio-db
+#   npx wrangler kv namespace create CACHE
+#
+# Both print the id to paste below. Neither is a secret; ids identify a resource
+# and confer no access on their own, which is why they live in this committed file
+# rather than in `wrangler secret`.
+# ---------------------------------------------------------------------------
+
+# D1: the durable half. Guestbook entries and the visit log.
+[[d1_databases]]
+binding = "DB"
+database_name = "aryaptrha-portfolio-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+# Where `wrangler d1 migrations apply` looks. This is the default, stated so the
+# link between the folder and the command is visible from the config.
+migrations_dir = "migrations"
+
+# KV: the fast half. Read cache, rate-limit counters, and the runtime config
+# document that lets the guestbook be switched off without a deploy.
+[[kv_namespaces]]
+binding = "CACHE"
+id = "00000000000000000000000000000000"

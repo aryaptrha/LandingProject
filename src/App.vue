@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import MenuCard from './components/MenuCard.vue'
 import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
+import EdgeGuestbook from './components/EdgeGuestbook.vue'
+import EdgeInsights from './components/EdgeInsights.vue'
 import EdgeNetworkVisualization from './components/EdgeNetworkVisualization.vue'
 import LatencyIndicator from './components/LatencyIndicator.vue'
 import ChatContainer from './components/chat/ChatContainer.vue'
@@ -83,6 +85,15 @@ const menuItems = [
         </div>
 
         <EdgeNetworkVisualization class="grid-spacing" />
+
+        <!--
+          Below the network map on purpose: that panel shows the edge is there, and
+          these two show it doing something durable. Guestbook first, because it is
+          the one a visitor can interact with; insights second, because it is partly
+          a readout of that interaction.
+        -->
+        <EdgeGuestbook class="grid-spacing" />
+        <EdgeInsights class="grid-spacing" />
       </section>
     </main>
   </div>
