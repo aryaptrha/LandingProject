@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { ChatMessage } from '../../composables/useChat'
+import AvengerPixelAvatar from './AvengerPixelAvatar.vue'
 
 const props = defineProps<{
   message: ChatMessage
+  userAvatarId?: string
 }>()
 
 const isCopied = ref(false)
@@ -64,6 +66,11 @@ function renderFormattedText(content: string): string {
       </svg>
 
       <!-- User Pixel Avatar -->
+      <AvengerPixelAvatar
+        v-else-if="userAvatarId"
+        :avatar-id="userAvatarId"
+        :size="24"
+      />
       <svg v-else viewBox="0 0 16 16" width="24" height="24" class="pixel-art">
         <rect width="16" height="16" fill="#A9D6E5" rx="3" />
         <rect x="4" y="2" width="8" height="3" fill="#4B6B94" />

@@ -6,6 +6,7 @@ import ChatMessageItem from './ChatMessageItem.vue'
 const props = defineProps<{
   messages: ChatMessage[]
   isLoading: boolean
+  userAvatarId?: string
 }>()
 
 const listRef = ref<HTMLElement | null>(null)
@@ -31,6 +32,7 @@ onMounted(scrollToBottom)
       v-for="msg in messages"
       :key="msg.id"
       :message="msg"
+      :user-avatar-id="userAvatarId"
     />
   </div>
 </template>

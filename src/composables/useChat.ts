@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
   ENDPOINT: 'persona_chat_endpoint',
   API_KEY: 'persona_chat_api_key',
   MESSAGES: 'persona_chat_messages',
+  USER_AVATAR: 'persona_chat_user_avatar',
 }
 
 function getActiveEndpoint(): string {
@@ -47,6 +48,8 @@ const INITIAL_MESSAGES: ChatMessage[] = [
 export function useChat() {
   const endpointUrl = ref<string>(getActiveEndpoint())
   const apiKey = ref<string>(localStorage.getItem(STORAGE_KEYS.API_KEY) || DEFAULT_API_KEY)
+  const userAvatarId = ref<string>(localStorage.getItem(STORAGE_KEYS.USER_AVATAR) || '')
+  const isAvatarPickerOpen = ref<boolean>(!localStorage.getItem(STORAGE_KEYS.USER_AVATAR))
   const messages = ref<ChatMessage[]>([])
   const isLoading = ref<boolean>(false)
   const error = ref<string | null>(null)
@@ -84,6 +87,29 @@ export function useChat() {
       localStorage.removeItem(STORAGE_KEYS.API_KEY)
     }
   })
+
+  watch(userAvatarId, (newVal) => {
+    if (newVal) {
+      localStorage.setItem(STORAGE_KEYS.USER_AVATAR, newVal)
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.USER_AVATAR)
+    }
+  })
+
+  function setUserAvatar(id: string) {
+    userAvatarId.value = id
+    isAvatarPickerOpen.value = false
+  }
+
+  function openAvatarPicker() {
+    isAvatarPickerOpen.value = true
+  }
+
+  function closeAvatarPicker() {
+    if (userAvatarId.value) {
+      isAvatarPickerOpen.value = false
+    }
+  }
 
   watch(
     messages,
@@ -268,6 +294,8 @@ export function useChat() {
   return {
     endpointUrl,
     apiKey,
+    userAvatarId,
+    isAvatarPickerOpen,
     messages,
     isLoading,
     error,
@@ -275,6 +303,9 @@ export function useChat() {
     clearMessages,
     setEndpoint,
     setApiKey,
+    setUserAvatar,
+    openAvatarPicker,
+    closeAvatarPicker,
     DEFAULT_ENDPOINT,
   }
 }

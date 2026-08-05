@@ -4,12 +4,17 @@ import { useChat } from '../../composables/useChat'
 import ChatHeader from './ChatHeader.vue'
 import ChatMessageList from './ChatMessageList.vue'
 import ChatInput from './ChatInput.vue'
+import ChatAvatarPicker from './ChatAvatarPicker.vue'
 
 const {
   messages,
   isLoading,
   sendMessage,
   clearMessages,
+  userAvatarId,
+  isAvatarPickerOpen,
+  setUserAvatar,
+  openAvatarPicker,
 } = useChat()
 
 const isOpen = ref(false)
@@ -54,21 +59,34 @@ function toggleChat() {
       <section v-if="isOpen" class="chat-popup" role="dialog" aria-label="Chat Window with Arya">
         <!-- Header -->
         <ChatHeader
+          :user-avatar-id="userAvatarId"
           @close="isOpen = false"
           @clear-chat="clearMessages"
+          @open-avatar-picker="openAvatarPicker"
         />
 
-        <!-- Message List -->
-        <ChatMessageList
-          :messages="messages"
-          :is-loading="isLoading"
+        <!-- Avatar Picker Overlay (shows when first starting chat or when user wants to change avatar) -->
+        <ChatAvatarPicker
+          v-if="isAvatarPickerOpen || !userAvatarId"
+          :initial-avatar-id="userAvatarId || 'ironman'"
+          @select="setUserAvatar"
         />
 
-        <!-- Input Bar -->
-        <ChatInput
-          :is-loading="isLoading"
-          @send="sendMessage"
-        />
+        <!-- Main Chat Area (shown after avatar selection) -->
+        <template v-else>
+          <!-- Message List -->
+          <ChatMessageList
+            :messages="messages"
+            :is-loading="isLoading"
+            :user-avatar-id="userAvatarId"
+          />
+
+          <!-- Input Bar -->
+          <ChatInput
+            :is-loading="isLoading"
+            @send="sendMessage"
+          />
+        </template>
       </section>
     </Transition>
   </div>

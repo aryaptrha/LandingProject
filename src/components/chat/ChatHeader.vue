@@ -1,7 +1,14 @@
 <script setup lang="ts">
+import AvengerPixelAvatar from './AvengerPixelAvatar.vue'
+
+defineProps<{
+  userAvatarId?: string
+}>()
+
 const emit = defineEmits<{
   (e: 'clear-chat'): void
   (e: 'close'): void
+  (e: 'open-avatar-picker'): void
 }>()
 </script>
 
@@ -38,6 +45,17 @@ const emit = defineEmits<{
     </div>
 
     <div class="chat-header__actions">
+      <button
+        v-if="userAvatarId"
+        class="header-btn"
+        title="Ganti Hero Avatar"
+        @click="emit('open-avatar-picker')"
+        type="button"
+        aria-label="Ganti Avatar"
+      >
+        <AvengerPixelAvatar :avatar-id="userAvatarId" :size="18" />
+      </button>
+
       <button
         class="header-btn header-btn--danger"
         title="Clear History"
