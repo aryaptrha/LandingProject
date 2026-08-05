@@ -6,3 +6,16 @@ main = "src/worker/index.ts"
 
 [assets]
 directory = "./dist"
+
+# Must match the /api proxy target in vite.config.ts so the two-server dev
+# workflow (`npm run dev` + `wrangler dev`) works without a --port flag.
+[dev]
+port = 8788
+
+# Secrets (set with `npx wrangler secret put <NAME>`, or .dev.vars locally):
+#   PERSONA_API_URL  - external Arya persona backend, proxied by /api/chat
+#   PERSONA_API_KEY  - optional bearer token for that backend
+#   PERSONA_ORIGIN   - origin to present upstream if it enforces an allowlist.
+#                      Defaults to the worker's own origin, which is right in
+#                      production; only needed in .dev.vars, where the worker
+#                      runs on 127.0.0.1 and would be rejected.

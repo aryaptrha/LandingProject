@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useEdgeStatus } from '@/composables/useEdgeStatus'
+import { prefersReducedMotion } from '@/utils/motion'
 
 const { data } = useEdgeStatus(30000)
 
@@ -62,6 +63,9 @@ const edgeLabel = computed(() => {
 
 function startAnimation() {
   if (animationInterval) return
+  // The packet loop is decorative. With reduced motion requested, leave the
+  // diagram static rather than restarting the animation every 2 s.
+  if (prefersReducedMotion()) return
   triggerPacket()
   animationInterval = setInterval(triggerPacket, 2000)
 }

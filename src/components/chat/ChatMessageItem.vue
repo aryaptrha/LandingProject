@@ -219,7 +219,7 @@ function renderFormattedText(content: string): string {
 }
 
 .message-item--assistant .message-item__bubble {
-  background: #FAFAF7;
+  background: var(--surface-sunken);
   border: 1px solid rgba(217, 200, 241, 0.7);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
   border-radius: 18px 18px 18px 4px;
@@ -235,7 +235,7 @@ function renderFormattedText(content: string): string {
 .message-item--error .message-item__bubble {
   background: var(--pink-light);
   border-color: var(--pink-main);
-  color: #a93226;
+  color: var(--status-error);
 }
 
 .message-item__text p {
@@ -254,7 +254,7 @@ function renderFormattedText(content: string): string {
   bottom: 6px;
   right: 6px;
   padding: 3px 6px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--surface-translucent);
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.7rem;
@@ -271,11 +271,11 @@ function renderFormattedText(content: string): string {
 .message-item__copy-btn:hover {
   transform: translateY(-1px);
   color: var(--text-dark);
-  background: #ffffff;
+  background: var(--surface-raised);
 }
 
 .copy-badge {
-  color: #1f5e3b;
+  color: var(--status-success-text);
   font-weight: 600;
 }
 

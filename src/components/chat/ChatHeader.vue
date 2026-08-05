@@ -152,7 +152,7 @@ const emit = defineEmits<{
 .online-dot {
   width: 7px;
   height: 7px;
-  background: #34c759;
+  background: var(--status-online);
   border-radius: 50%;
   box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.25);
 }
@@ -190,8 +190,8 @@ const emit = defineEmits<{
 .header-btn:hover {
   transform: translateY(-1px);
   color: var(--text-dark);
-  background: #ffffff;
-  border-color: #cccccc;
+  background: var(--surface);
+  border-color: var(--border);
 }
 
 .header-btn:active {
@@ -201,6 +201,6 @@ const emit = defineEmits<{
 .header-btn--danger:hover {
   background: var(--pink-light);
   border-color: var(--pink-main);
-  color: #c0392b;
+  color: var(--status-error);
 }
 </style>

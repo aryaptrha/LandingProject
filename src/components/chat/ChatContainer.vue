@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useChat } from '../../composables/useChat'
 import ChatHeader from './ChatHeader.vue'
 import ChatMessageList from './ChatMessageList.vue'
 import ChatInput from './ChatInput.vue'
 import ChatAvatarPicker from './ChatAvatarPicker.vue'
+import ChatPromptChips from './ChatPromptChips.vue'
 
 const {
   messages,
@@ -18,6 +19,9 @@ const {
 } = useChat()
 
 const isOpen = ref(false)
+
+/** Only shown on a fresh conversation — the welcome message alone, nothing asked yet. */
+const showPromptChips = computed(() => messages.value.length <= 1)
 
 function toggleChat() {
   isOpen.value = !isOpen.value
@@ -79,6 +83,13 @@ function toggleChat() {
             :messages="messages"
             :is-loading="isLoading"
             :user-avatar-id="userAvatarId"
+          />
+
+          <!-- Starter prompts, only before the first question -->
+          <ChatPromptChips
+            v-if="showPromptChips"
+            :disabled="isLoading"
+            @send="sendMessage"
           />
 
           <!-- Input Bar -->
@@ -153,7 +164,7 @@ function toggleChat() {
 .chat-launcher__dot {
   width: 7px;
   height: 7px;
-  background: #34c759;
+  background: var(--status-online);
   border-radius: 50%;
   box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.25);
 }
@@ -169,7 +180,7 @@ function toggleChat() {
   width: 360px;
   height: 500px;
   max-height: calc(85vh - 60px);
-  background: #ffffff;
+  background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: 16px;
   box-shadow: 0 10px 36px rgba(0, 0, 0, 0.14);

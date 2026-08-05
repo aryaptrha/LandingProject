@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { prefersReducedMotion } from '@/utils/motion'
 
 const props = defineProps<{
   originX?: number
@@ -28,6 +29,14 @@ interface SparkParticle {
 const SPARK_COLORS = ['#FFD700', '#FF8C00', '#FF4500', '#FFA500', '#FFF700', '#FF3300']
 
 onMounted(() => {
+  // Purely decorative particle burst. With reduced motion requested, skip the
+  // canvas loop entirely and report completion so the caller isn't left waiting.
+  if (prefersReducedMotion()) {
+    isVisible.value = false
+    emit('complete')
+    return
+  }
+
   const canvas = canvasRef.value
   if (!canvas) return
   const ctx = canvas.getContext('2d')

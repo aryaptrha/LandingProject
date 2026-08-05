@@ -12,7 +12,31 @@
     content="aryaptrha, portfolio, web developer, software engineer, game development, Unity, Next.js, Supabase, ASP.NET, fullstack, indie games">
   <meta name="author" content="aryaptrha">
   <meta name="robots" content="index, follow">
-  <meta name="theme-color" content="#FAFAF7">
+  <meta id="theme-color-meta" name="theme-color" content="#FAFAF7">
+
+  <!-- Resolve the theme before first paint, so a night visitor never sees a
+       flash of the day palette. Mirrors the logic in src/composables/useTheme.ts;
+       the key must stay in sync with STORAGE_KEY there. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('portfolio_theme')
+        var theme =
+          stored === 'day' || stored === 'night'
+            ? stored
+            : window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'night'
+              : 'day'
+        document.documentElement.setAttribute('data-theme', theme)
+        if (theme === 'night') {
+          var meta = document.getElementById('theme-color-meta')
+          if (meta) meta.setAttribute('content', '#1E1C22')
+        }
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'day')
+      }
+    })()
+  </script>
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">

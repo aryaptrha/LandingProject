@@ -121,7 +121,7 @@ function handleConfirm() {
   z-index: 10;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--surface-overlay);
   backdrop-filter: blur(8px);
   padding: 12px 14px;
   overflow: hidden;
@@ -155,13 +155,13 @@ function handleConfirm() {
   font-family: 'Pixelify Sans', monospace;
   font-size: 1.15rem;
   font-weight: 700;
-  color: var(--text-dark, #2F2F2F);
+  color: var(--text-dark);
   margin: 0 0 2px 0;
 }
 
 .avatar-picker-subtitle {
   font-size: 0.78rem;
-  color: var(--text-medium, #666666);
+  color: var(--text-medium);
   margin: 0;
   line-height: 1.3;
 }
@@ -183,8 +183,8 @@ function handleConfirm() {
   justify-content: center;
   gap: 4px;
   padding: 6px 4px;
-  background: var(--bg-soft, #FAFAF7);
-  border: 2px solid var(--border, #D8D8D8);
+  background: var(--surface-sunken);
+  border: 2px solid var(--border);
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
@@ -192,8 +192,8 @@ function handleConfirm() {
 
 .avatar-option:hover {
   transform: translateY(-2px);
-  border-color: #60A5FA;
-  background: #ffffff;
+  border-color: var(--select-border-hover);
+  background: var(--surface);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
 }
 
@@ -202,22 +202,25 @@ function handleConfirm() {
 }
 
 .avatar-option--selected {
-  border-color: #2563EB;
-  background: #DBEAFE;
-  box-shadow: 0 0 0 2.5px #2563EB, 0 4px 14px rgba(37, 99, 235, 0.3);
+  border-color: var(--select-ring);
+  background: var(--select-bg);
+  /* Ring carries the selection; the second layer is plain elevation. A tinted
+     bloom here would read as glow, which design.md rules out, and a hardcoded
+     accent would not follow the night palette. */
+  box-shadow: 0 0 0 2.5px var(--select-ring), 0 4px 12px rgba(0, 0, 0, 0.1);
   transform: scale(1.03);
 }
 
 .avatar-option--drstrange.avatar-option--selected {
-  border-color: #FF8C00;
-  background: #FFF3E0;
-  box-shadow: 0 0 0 2.5px #FF8C00, 0 4px 16px rgba(255, 140, 0, 0.45);
+  border-color: var(--select-ring-mystic);
+  background: var(--select-bg-mystic);
+  box-shadow: 0 0 0 2.5px var(--select-ring-mystic), 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .avatar-option--selected:hover,
 .avatar-option--selected:active {
-  border-color: #1D4ED8;
-  background: #BFDBFE;
+  border-color: var(--select-ring-hover);
+  background: var(--select-bg-hover);
 }
 
 .avatar-option__preview {
@@ -231,7 +234,7 @@ function handleConfirm() {
   font-family: 'Nunito', sans-serif;
   font-size: 0.7rem;
   font-weight: 700;
-  color: var(--text-dark, #2F2F2F);
+  color: var(--text-dark);
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -240,7 +243,7 @@ function handleConfirm() {
 }
 
 .avatar-option--selected .avatar-option__name {
-  color: #1E3A8A;
+  color: var(--select-text);
   font-weight: 800;
 }
 
@@ -256,13 +259,13 @@ function handleConfirm() {
 .confirm-avatar-btn {
   width: 100%;
   padding: 9px 12px;
-  background: var(--blue-main, #A9D6E5);
-  border: 1.5px solid #7bc3d7;
+  background: var(--blue-main);
+  border: 1.5px solid var(--blue-deep);
   border-radius: 12px;
   font-family: 'Pixelify Sans', monospace;
   font-size: 0.95rem;
   font-weight: 700;
-  color: var(--text-dark, #2F2F2F);
+  color: var(--text-dark);
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
@@ -270,7 +273,7 @@ function handleConfirm() {
 
 .confirm-avatar-btn:hover {
   transform: translateY(-1px);
-  background: #90cce0;
+  background: var(--blue-deep);
   box-shadow: 0 5px 14px rgba(0, 0, 0, 0.08);
 }
 

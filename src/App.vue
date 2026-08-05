@@ -4,6 +4,7 @@ import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
 import EdgeNetworkVisualization from './components/EdgeNetworkVisualization.vue'
 import LatencyIndicator from './components/LatencyIndicator.vue'
 import ChatContainer from './components/chat/ChatContainer.vue'
+import ThemeToggle from './components/ThemeToggle.vue'
 import IconGameDev from './components/icons/IconGameDev.vue'
 import IconBackend from './components/icons/IconBackend.vue'
 import IconMobile from './components/icons/IconMobile.vue'
@@ -15,7 +16,7 @@ const menuItems = [
     title: 'Personal Website',
     description: 'A personal website built in HTML, CSS, and Vanilla JavaScript, showcasing my portfolio and projects. It is designed to be fast, responsive, and accessible.',
     icon: IconDesign,
-    color: '#FCE6EC',
+    color: 'var(--pink-light)',
     link: 'https://aryaptrha.github.io/yaya/',
     disabled: false,
   },
@@ -23,7 +24,7 @@ const menuItems = [
     title: 'Game Dev',
     description: 'I made this game for completing my bachelor thesis, and I\'ve been exploring game development ever since. Built with Unity and C#.',
     icon: IconGameDev,
-    color: '#FCF5D6',
+    color: 'var(--yellow-light)',
     link: 'https://aryaptrha.itch.io/upi-cibiru-prototype',
     disabled: false,
   },
@@ -31,7 +32,7 @@ const menuItems = [
     title: 'Kecha',
     description: 'A full-stack web application for my hobby project. Built with Next.js, TypeScript, Tailwind CSS, and Supabase, with a focus on real-time collaboration and user experience.',
     icon: IconBackend,
-    color: '#EFE7FA',
+    color: 'var(--lavender-light)',
     link: 'https://kecha.vercel.app/',
     disabled: false,
   },
@@ -39,7 +40,7 @@ const menuItems = [
     title: 'Basic CRUD Fullstack App',
     description: 'A simple full-stack application built with ASP.NET and SQL Server, demonstrating basic CRUD operations and authentication.',
     icon: IconMobile,
-    color: '#DFF4E7',
+    color: 'var(--green-light)',
     link: 'https://learndeploy-azfwgzbngqebhwcr.southeastasia-01.azurewebsites.net',
     disabled: false,
   },
@@ -47,7 +48,7 @@ const menuItems = [
     title: 'Soon',
     description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
     icon: IconOpenSource,
-    color: '#DFF4E7',
+    color: 'var(--green-light)',
     link: '',
     disabled: true,
   },
@@ -87,6 +88,7 @@ const menuItems = [
   </div>
 
   <!-- Floating Widgets -->
+  <ThemeToggle />
   <ChatContainer />
   <LatencyIndicator />
   <CloudflareEdgeStatus />
@@ -117,44 +119,6 @@ const menuItems = [
   font-size: 1.05rem;
   color: var(--text-medium);
   margin-bottom: var(--space-lg);
-}
-
-.landing__nav {
-  display: inline-flex;
-  gap: var(--space-xs);
-  padding: 5px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: var(--glass-border);
-  border-radius: var(--radius-badge);
-  box-shadow: var(--glass-shadow);
-}
-
-.nav-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 18px;
-  border-radius: var(--radius-badge);
-  border: none;
-  background: transparent;
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-medium);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.nav-tab:hover {
-  color: var(--text-dark);
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.nav-tab--active {
-  background: var(--blue-main);
-  color: var(--text-dark);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .landing__content {

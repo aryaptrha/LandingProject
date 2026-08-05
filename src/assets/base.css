@@ -28,11 +28,67 @@
   --lavender-main: #D9C8F1;
   --lavender-light: #EFE7FA;
 
-  /* Neutral */
+  /* Neutral.
+     `--text-dark` / `--text-medium` mean primary / secondary text. The names are
+     kept for compatibility with existing components; under the night palette they
+     resolve to light values. */
   --text-dark: #2F2F2F;
   --text-medium: #666666;
   --border: #D8D8D8;
   --divider: #EAEAEA;
+
+  /* Surfaces. Components should use these instead of literal #ffffff, so the
+     night palette can repoint them in one place. */
+  --surface: #FFFFFF;
+  --surface-raised: #FFFFFF;
+  --surface-sunken: #FAFAF7;
+  --surface-muted: #F3EFE8;
+
+  /* Translucent surfaces. These cannot be plain hex because they let the layer
+     underneath show through, so both palettes need their own rgba. */
+  --surface-overlay: rgba(255, 255, 255, 0.96);
+  --surface-translucent: rgba(255, 255, 255, 0.85);
+  --surface-hover-wash: rgba(0, 0, 0, 0.05);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
+
+  /* Text on a pastel accent fill uses `--text-dark`. It already flips light at
+     night, and the accents darken to match, so no separate on-accent token is
+     needed — one would only drift out of sync with this one. */
+
+  /* Hover step for a solid blue control: darker in day, lighter at night, so the
+     direction of the change always reads as "raised". This is a fill/border token,
+     never text — the pair that has to clear 4.5:1 is `--text-on-accent` on it. */
+  --blue-deep: #94CADC;
+
+  /* Status. Never the only signal for state — always paired with text or shape. */
+  --status-online: #2E9E4B;
+  --status-error: #C0392B;
+  --status-success-text: #1F5E3B;
+
+  /* Inline code samples in the settings modal */
+  --code-text: #C7254E;
+
+  /* Avatar picker selection state. Kept as its own group because the picker uses
+     a saturated blue (and orange for Dr Strange) rather than the pastel accents. */
+  --select-border-hover: #60A5FA;
+  --select-ring: #2563EB;
+  --select-ring-hover: #1D4ED8;
+  --select-bg: #DBEAFE;
+  --select-bg-hover: #BFDBFE;
+  --select-text: #1E3A8A;
+  /* Deepened from the original #FF8C00, which only reached 2.2:1 against the
+     picker background — a selection ring is a state indicator and owes 3:1
+     (WCAG 1.4.11). Still reads as mystic orange, just not as a highlighter. */
+  --select-ring-mystic: #CC6600;
+  --select-bg-mystic: #FFF3E0;
+
+  /* Disabled controls. WCAG 1.4.3 exempts inactive components, but these clear
+     3:1 against their own fill so the label stays readable. */
+  --text-disabled: #757575;
+  --surface-disabled: #E0E0E0;
+
+  --focus-ring: #2F2F2F;
 
   /* Glass */
   --glass-bg: rgba(255, 255, 255, 0.8);
@@ -55,6 +111,79 @@
   --radius-btn: 16px;
   --radius-input: 14px;
   --radius-badge: 999px;
+
+  color-scheme: light;
+}
+
+/* Night palette.
+   Applied by `useTheme` as `data-theme="night"` on <html>. Flat dusk tones only —
+   no gradients, no glow, no neon, per design.md. The pastel accents are darkened
+   rather than dropped, so hue identity survives and `--text-on-accent` can flip
+   to a light value and still clear 4.5:1. Pixel-art SVG fills are deliberately
+   untouched: they are illustrations, not theme surfaces. */
+:root[data-theme='night'] {
+  --bg-primary: #1E1C22;
+  --bg-secondary: #26232B;
+  --bg-soft: #2A2730;
+
+  --blue-main: #35606E;
+  --blue-light: #24343C;
+
+  --green-main: #35664C;
+  --green-light: #223229;
+
+  --pink-main: #74404F;
+  --pink-light: #33232A;
+
+  --yellow-main: #6E5A32;
+  --yellow-light: #322B1E;
+
+  --lavender-main: #554672;
+  --lavender-light: #2B2537;
+
+  --text-dark: #ECE9F0;
+  --text-medium: #ADA6B8;
+  --border: #3E3949;
+  --divider: #322E3C;
+
+  --surface: #26232B;
+  --surface-raised: #2E2A36;
+  --surface-sunken: #1B191F;
+  --surface-muted: #322E3A;
+
+  --surface-overlay: rgba(38, 35, 43, 0.96);
+  --surface-translucent: rgba(46, 42, 54, 0.85);
+  --surface-hover-wash: rgba(255, 255, 255, 0.07);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.16);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.28);
+
+  --blue-deep: #3B6B79;
+
+  --status-online: #57B877;
+  --status-error: #E58170;
+  --status-success-text: #7FCFA0;
+
+  --code-text: #F0A0B4;
+
+  --select-border-hover: #4C7FC4;
+  --select-ring: #6E9BF0;
+  --select-ring-hover: #8FB4F5;
+  --select-bg: #24334D;
+  --select-bg-hover: #2C3F5E;
+  --select-text: #C7DAFB;
+  --select-ring-mystic: #E08A2E;
+  --select-bg-mystic: #3A2A16;
+
+  --text-disabled: #908AA0;
+  --surface-disabled: #37323F;
+
+  --focus-ring: #ECE9F0;
+
+  --glass-bg: rgba(30, 28, 34, 0.72);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  color-scheme: dark;
 }
 
 *,
@@ -74,4 +203,22 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Theme switch reads as a soft cross-fade, inside the 150-200ms motion budget. */
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
+}
+
+/* Respect the OS-level motion preference: keep state changes instant rather than
+   animated, and stop the looping widget animations from running at all. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }

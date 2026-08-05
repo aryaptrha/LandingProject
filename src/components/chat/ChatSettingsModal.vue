@@ -145,7 +145,7 @@ function handleReset() {
 .modal-card {
   width: 100%;
   max-width: 520px;
-  background: #FAFAF7;
+  background: var(--surface-sunken);
   border: var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15);
@@ -197,7 +197,7 @@ function handleReset() {
 }
 
 .close-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--surface-hover-wash);
   color: var(--text-dark);
 }
 
@@ -223,7 +223,7 @@ function handleReset() {
 .form-input {
   width: 100%;
   padding: 10px 14px;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-input);
   font-family: inherit;
@@ -260,11 +260,11 @@ function handleReset() {
 .payload-info__code {
   font-family: monospace;
   font-size: 0.8rem;
-  background: #ffffff;
+  background: var(--surface);
   padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid var(--divider);
-  color: #c7254e;
+  color: var(--code-text);
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -302,7 +302,7 @@ function handleReset() {
 
 .btn--primary:hover {
   transform: translateY(-2px);
-  background: #94cadc;
+  background: var(--blue-deep);
 }
 
 .btn--secondary {
@@ -312,7 +312,7 @@ function handleReset() {
 }
 
 .btn--secondary:hover {
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .btn--ghost {

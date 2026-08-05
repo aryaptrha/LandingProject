@@ -17,6 +17,10 @@ coverage
 .env.*
 !.env.example
 
+# Wrangler local secrets (worker vars for `wrangler dev`)
+.dev.vars
+.dev.vars.*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -40,3 +44,6 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Claude Code
+CLAUDE.md

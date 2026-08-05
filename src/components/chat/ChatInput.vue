@@ -72,7 +72,7 @@ function adjustHeight() {
 <style scoped>
 .chat-input-bar {
   padding: 10px 12px;
-  background: #ffffff;
+  background: var(--surface);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -90,7 +90,7 @@ function adjustHeight() {
 
 .chat-input-container:focus-within {
   border-color: var(--blue-main);
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: 0 0 0 2px rgba(169, 216, 229, 0.3);
 }
 
@@ -109,7 +109,7 @@ function adjustHeight() {
 }
 
 .chat-input::placeholder {
-  color: #999999;
+  color: var(--text-medium);
 }
 
 .chat-input:disabled {
@@ -134,7 +134,7 @@ function adjustHeight() {
 
 .send-btn:hover:not(:disabled) {
   transform: scale(1.05);
-  background: #94cadc;
+  background: var(--blue-deep);
 }
 
 .send-btn:active:not(:disabled) {
@@ -142,8 +142,8 @@ function adjustHeight() {
 }
 
 .send-btn:disabled {
-  background: #e0e0e0;
-  color: #aaaaaa;
+  background: var(--surface-disabled);
+  color: var(--text-disabled);
   cursor: not-allowed;
 }
 

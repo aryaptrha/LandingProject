@@ -1,4 +1,5 @@
 import { ref, watch, onMounted } from 'vue'
+import { consumeSseStream } from '../utils/sse'
 
 export interface ChatMessage {
   id: string
@@ -16,15 +17,18 @@ const STORAGE_KEYS = {
   USER_AVATAR: 'persona_chat_user_avatar',
 }
 
+/**
+ * Resolves the chat endpoint.
+ *
+ * Always defaults to the worker's own `/api/chat`, which proxies to the persona
+ * backend using the `PERSONA_API_URL` secret. The upstream host is deliberately
+ * NOT read from a `VITE_*` var — those are inlined into the client bundle, which
+ * would publish the upstream URL to every visitor.
+ *
+ * The localStorage override remains for pointing a local build at a different
+ * backend while debugging.
+ */
 function getActiveEndpoint(): string {
-  const envUrl = import.meta.env.VITE_PERSONA_API_URL
-  if (envUrl && envUrl.trim()) {
-    const cleanUrl = envUrl.trim().replace(/\/$/, '')
-    if (cleanUrl.endsWith('/api/chat')) {
-      return cleanUrl
-    }
-    return `${cleanUrl}/api/chat`
-  }
   const saved = localStorage.getItem(STORAGE_KEYS.ENDPOINT)
   if (saved && saved.trim()) {
     return saved.trim()
@@ -32,8 +36,7 @@ function getActiveEndpoint(): string {
   return '/api/chat'
 }
 
-const DEFAULT_ENDPOINT = getActiveEndpoint()
-const DEFAULT_API_KEY = import.meta.env.VITE_API_KEY || ''
+const DEFAULT_ENDPOINT = '/api/chat'
 
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
@@ -45,9 +48,16 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   },
 ]
 
+/** How long before a still-pending reply gets the apologetic "aku lambat" notice. */
+const SLOW_NOTICE_MS = 120_000
+/** Hard ceiling for a non-streaming request. */
+const REQUEST_TIMEOUT_MS = 180_000
+/** Once a stream is flowing, abort only if it goes quiet for this long. */
+const STREAM_IDLE_MS = 45_000
+
 export function useChat() {
   const endpointUrl = ref<string>(getActiveEndpoint())
-  const apiKey = ref<string>(localStorage.getItem(STORAGE_KEYS.API_KEY) || DEFAULT_API_KEY)
+  const apiKey = ref<string>(localStorage.getItem(STORAGE_KEYS.API_KEY) || '')
   const userAvatarId = ref<string>(localStorage.getItem(STORAGE_KEYS.USER_AVATAR) || '')
   const isAvatarPickerOpen = ref<boolean>(!localStorage.getItem(STORAGE_KEYS.USER_AVATAR))
   const messages = ref<ChatMessage[]>([])
@@ -187,17 +197,54 @@ export function useChat() {
 
     messages.value.push(assistantMsg)
 
-    // Set a 2-minute (120,000 ms) timer to trigger awkward notification if loading takes too long
+    const controller = new AbortController()
+
+    // Apologetic notice if nothing has come back yet. For a stream this is cleared
+    // on the *first token*, not on completion — once text is moving, we're not stuck.
     let slowTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
       const targetMsg = messages.value.find((m) => m.id === assistantMsgId)
       if (targetMsg && targetMsg.status === 'sending') {
         targetMsg.isSlow = true
       }
-    }, 120000)
+    }, SLOW_NOTICE_MS)
+
+    const clearSlowTimer = () => {
+      if (slowTimer) {
+        clearTimeout(slowTimer)
+        slowTimer = null
+      }
+    }
+
+    // Hard ceiling so a wedged upstream can't leave the UI spinning forever.
+    let hardTimer: ReturnType<typeof setTimeout> | null = setTimeout(
+      () => controller.abort(),
+      REQUEST_TIMEOUT_MS
+    )
+    const clearHardTimer = () => {
+      if (hardTimer) {
+        clearTimeout(hardTimer)
+        hardTimer = null
+      }
+    }
+
+    // A long stream is legitimate, a silent one is not. Once tokens flow, the
+    // overall ceiling is replaced by this idle watchdog, reset on every chunk.
+    let idleTimer: ReturnType<typeof setTimeout> | null = null
+    const bumpIdleTimer = () => {
+      if (idleTimer) clearTimeout(idleTimer)
+      idleTimer = setTimeout(() => controller.abort(), STREAM_IDLE_MS)
+    }
+    const clearIdleTimer = () => {
+      if (idleTimer) {
+        clearTimeout(idleTimer)
+        idleTimer = null
+      }
+    }
 
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        Accept: 'text/event-stream, application/json',
       }
 
       if (apiKey.value) {
@@ -210,6 +257,7 @@ export function useChat() {
         method: 'POST',
         headers,
         body: JSON.stringify(apiPayload),
+        signal: controller.signal,
       })
 
       if (!response.ok) {
@@ -218,6 +266,30 @@ export function useChat() {
       }
 
       const contentType = response.headers.get('content-type') || ''
+      const targetMsg = messages.value.find((m) => m.id === assistantMsgId)
+
+      // Streaming path — the worker passes an upstream SSE body straight through.
+      if (contentType.includes('text/event-stream') && response.body) {
+        clearHardTimer()
+        bumpIdleTimer()
+
+        await consumeSseStream(response.body, (delta) => {
+          clearSlowTimer()
+          bumpIdleTimer()
+          if (targetMsg) targetMsg.content += delta
+        })
+
+        clearIdleTimer()
+
+        if (targetMsg) {
+          if (!targetMsg.content) targetMsg.content = '(Tidak ada respon yang diterima)'
+          targetMsg.status = 'sent'
+        }
+        return
+      }
+
+      // Non-streaming path. parseApiResponse stays untouched — it is deliberately
+      // tolerant of several upstream envelope shapes.
       let replyContent = ''
 
       if (contentType.includes('application/json')) {
@@ -231,26 +303,31 @@ export function useChat() {
         replyContent = '(Tidak ada respon yang diterima)'
       }
 
-      // Find and update assistant message content
-      const targetMsg = messages.value.find((m) => m.id === assistantMsgId)
       if (targetMsg) {
         targetMsg.content = replyContent
         targetMsg.status = 'sent'
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Gagal terhubung ke endpoint chat'
+      const aborted = err instanceof DOMException && err.name === 'AbortError'
+      const errMsg = aborted
+        ? 'Waktu tunggu habis'
+        : err instanceof Error
+          ? err.message
+          : 'Gagal terhubung ke endpoint chat'
       error.value = errMsg
 
       const targetMsg = messages.value.find((m) => m.id === assistantMsgId)
       if (targetMsg) {
-        targetMsg.content = `⚠️ Maaf, gagal terhubung ke server (${errMsg}). Silakan periksa koneksi atau URL endpoint di Settings.`
+        // Keep whatever streamed in before the break instead of throwing it away.
+        targetMsg.content = targetMsg.content
+          ? `${targetMsg.content}\n\n⚠️ (Terputus: ${errMsg})`
+          : `⚠️ Maaf, gagal terhubung ke server (${errMsg}). Silakan periksa koneksi atau URL endpoint di Settings.`
         targetMsg.status = 'error'
       }
     } finally {
-      if (slowTimer) {
-        clearTimeout(slowTimer)
-        slowTimer = null
-      }
+      clearSlowTimer()
+      clearHardTimer()
+      clearIdleTimer()
       isLoading.value = false
     }
   }

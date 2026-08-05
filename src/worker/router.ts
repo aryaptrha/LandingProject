@@ -5,8 +5,9 @@ import { visitor } from './routes/visitor'
 import { cache } from './routes/cache'
 import { chat } from './routes/chat'
 import { error } from './utils/response'
+import type { AppEnv } from './types/env'
 
-const api = new Hono()
+const api = new Hono<AppEnv>()
 
 // Mount all API routes under /api
 api.route('/api', edge)
