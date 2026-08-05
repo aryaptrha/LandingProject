@@ -49,7 +49,7 @@ port = 8788
 [[d1_databases]]
 binding = "DB"
 database_name = "aryaptrha-portfolio-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "b794f8eb-15f5-44f2-b0a4-65a501bd4921"
 # Where `wrangler d1 migrations apply` looks. This is the default, stated so the
 # link between the folder and the command is visible from the config.
 migrations_dir = "migrations"
@@ -58,4 +58,4 @@ migrations_dir = "migrations"
 # document that lets the guestbook be switched off without a deploy.
 [[kv_namespaces]]
 binding = "CACHE"
-id = "00000000000000000000000000000000"
+id = "6a8ef3d4a0f54ddaadd3597c9e82e9af"
