@@ -70,3 +70,38 @@ export function getCache(request: Request): CacheData {
     etag: request.headers.get('etag') ?? 'none',
   }
 }
+
+/**
+ * The subset of geo that gets written to durable storage.
+ *
+ * Narrower than `VisitorData` on purpose. That shape is a read-only view for the
+ * widget and can grow freely; this one becomes columns in D1, so every field here
+ * is a schema commitment. Notably absent: anything that identifies a person. The
+ * IP address is never persisted — see services/ratelimit.service.ts, where it is
+ * hashed into a KV key that expires with its window.
+ */
+export interface GeoSnapshot {
+  country: string
+  city: string
+  colo: string
+  continent: string
+}
+
+/**
+ * Reads the persistable geo fields off a request.
+ *
+ * Falls back to 'unknown' rather than null so the value is always a string: the
+ * aggregate queries filter on `<> 'unknown'`, which is simpler than juggling
+ * NULL semantics in SQL. Miniflare leaves `cf` sparse locally, so this path is
+ * exercised on every local run.
+ */
+export function readGeo(request: Request): GeoSnapshot {
+  const cf = getCf(request)
+
+  return {
+    country: ('country' in cf ? (cf.country as string) : undefined) ?? 'unknown',
+    city: ('city' in cf ? (cf.city as string) : undefined) ?? 'unknown',
+    colo: ('colo' in cf ? (cf.colo as string) : undefined) ?? 'unknown',
+    continent: ('continent' in cf ? (cf.continent as string) : undefined) ?? 'unknown',
+  }
+}
