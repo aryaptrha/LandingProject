@@ -1,0 +1,27 @@
+# Local worker vars for `wrangler dev` (npm run cf).
+#
+# Copy to `.dev.vars` and fill in. That file is gitignored and does NOT survive a
+# clone, so this template is the only thing telling a new machine what it needs.
+#
+#   cp .dev.vars.example .dev.vars
+#
+# These are worker-side only. They are never bundled into the client — the browser
+# always calls the worker's own /api/chat and the worker proxies upstream. Never
+# move any of these to a VITE_ var: Vite inlines those into the shipped JS.
+#
+# In production these are set with `npx wrangler secret put <NAME>` instead.
+# See docs/DEPLOYMENT.md.
+
+# Base URL of the Arya persona backend. The worker appends /api/chat, so give the
+# bare host here. A full https://host/api/chat is also accepted.
+# Leave unset to exercise the canned-reply fallback in src/worker/routes/chat.ts.
+PERSONA_API_URL=https://api.example.com
+
+# Origin presented to the backend, which enforces an origin allowlist.
+# REQUIRED LOCALLY: a server-side fetch sends no Origin header, and the worker's
+# own origin here is 127.0.0.1, which your allowlist will reject. In production
+# this is omitted so it defaults to the real site origin.
+PERSONA_ORIGIN=https://aryaptrha.fun
+
+# Optional bearer token for the backend. Omit entirely if it needs no auth.
+# PERSONA_API_KEY=your_token_here

@@ -17,9 +17,19 @@ coverage
 .env.*
 !.env.example
 
-# Wrangler local secrets (worker vars for `wrangler dev`)
+# Wrangler local secrets (worker vars for `wrangler dev`).
+# The `.example` template is the one file here that must stay tracked — it is the
+# only record of which vars a fresh clone needs, and `.dev.vars.*` would swallow it.
 .dev.vars
 .dev.vars.*
+!.dev.vars.example
+
+# Wrangler/miniflare local state: a sqlite cache plus per-run build bundles.
+# Regenerated on every `wrangler dev`, so committing it only creates diff noise.
+.wrangler/
+
+# Crash dumps (Cygwin/Git-Bash drops these in the cwd)
+*.stackdump
 
 # Editor directories and files
 .vscode/*
