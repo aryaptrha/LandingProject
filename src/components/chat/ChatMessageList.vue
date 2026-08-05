@@ -11,6 +11,9 @@ const props = defineProps<{
 
 const listRef = ref<HTMLElement | null>(null)
 
+/** Distance from the bottom that still counts as "following the conversation". */
+const STICK_THRESHOLD_PX = 60
+
 function scrollToBottom() {
   nextTick(() => {
     if (listRef.value) {
@@ -19,8 +22,29 @@ function scrollToBottom() {
   })
 }
 
+/**
+ * Whether the reader is parked at the bottom. Watchers flush before the DOM
+ * updates, so this measures the position from *before* the new content landed —
+ * which is the question we actually want answered.
+ */
+function isNearBottom(): boolean {
+  const el = listRef.value
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= STICK_THRESHOLD_PX
+}
+
+function scrollIfFollowing() {
+  if (isNearBottom()) scrollToBottom()
+}
+
 watch(() => props.messages.length, scrollToBottom)
 watch(() => props.isLoading, scrollToBottom)
+
+// A streamed reply grows the last message in place, so the array length never
+// changes and neither watcher above fires — the text would run off the bottom
+// until the stream ended. Follow it token by token, but only while the reader
+// hasn't scrolled up, so re-reading earlier messages isn't fought.
+watch(() => props.messages[props.messages.length - 1]?.content, scrollIfFollowing)
 
 onMounted(scrollToBottom)
 </script>

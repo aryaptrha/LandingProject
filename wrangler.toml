@@ -6,6 +6,11 @@ main = "src/worker/index.ts"
 
 [assets]
 directory = "./dist"
+# Required for `env.ASSETS` to exist. Static files matching a request are served
+# before the worker runs, so the app loads without this — but src/worker/index.ts
+# falls back to `env.ASSETS.fetch()` for anything that matches no file, and that
+# throws on an undefined binding.
+binding = "ASSETS"
 
 # Must match the /api proxy target in vite.config.ts so the two-server dev
 # workflow (`npm run dev` + `wrangler dev`) works without a --port flag.
