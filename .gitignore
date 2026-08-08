@@ -57,3 +57,15 @@ __screenshots__/
 
 # Claude Code
 CLAUDE.md
+
+# Per-machine settings, and git worktrees created by EnterWorktree.
+#
+# `worktrees/` matters beyond diff noise: a worktree directory holds a `.git`
+# *file*, so `git add -A` records it as a gitlink (mode 160000) rather than
+# walking into it. With no `.gitmodules` to match, Cloudflare's build then fails
+# at "error occurred while updating repository submodules" while cloning.
+#
+# Scoped rather than ignoring `.claude/` wholesale, so shared config (agents,
+# skills, a committed settings.json) can still be tracked if that's ever wanted.
+.claude/settings.local.json
+.claude/worktrees/
