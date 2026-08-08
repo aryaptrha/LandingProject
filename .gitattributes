@@ -1,0 +1,49 @@
+# Line endings are pinned to LF everywhere: in the repository and in the
+# working tree, on every platform.
+#
+# This is not cosmetic. `core.autocrlf=true` on Windows checks files out as
+# CRLF, while Cloudflare's Linux builder gets LF. Vue derives each component's
+# scoped-style id (`data-v-…`) from its source bytes, so the same commit
+# compiles to different ids — and therefore different asset content hashes —
+# depending on which machine ran the build. That makes a local `npm run build`
+# impossible to compare against what Workers Builds actually deployed, so
+# "is production running this commit?" can't be answered from hashes alone.
+#
+# `eol=lf` is per-repo and overrides core.autocrlf, so this holds for anyone
+# who clones the project regardless of their global git config.
+* text=auto eol=lf
+
+# Binaries are exempt from all conversion. `text=auto` guesses most of these
+# correctly on its own, but the tracked sqlite files under .wrangler/state and
+# the .ico are exactly the cases where a wrong guess corrupts a file silently.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.webp          binary
+*.avif          binary
+*.ico           binary
+*.pdf           binary
+
+# Fonts.
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.otf           binary
+*.eot           binary
+
+# Audio for the music player (public/music/).
+*.mp3           binary
+*.m4a           binary
+*.ogg           binary
+*.opus          binary
+*.wav           binary
+*.flac          binary
+
+# Local miniflare dev state and Cygwin crash dumps. Both are matched by
+# .gitignore but were committed before those rules existed, so they are still
+# tracked and still need protecting from conversion.
+*.sqlite        binary
+*.sqlite-shm    binary
+*.sqlite-wal    binary
+*.stackdump     binary
