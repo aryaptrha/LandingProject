@@ -24,7 +24,6 @@ export interface MusicTrack {
  * player reads nothing else from this module.
  */
 export const MUSIC_TRACKS: MusicTrack[] = [
-  { id: 'dust-motes', title: 'Dust Motes', artist: 'Placeholder', src: '/music/dust-motes.wav' },
-  { id: 'late-bus', title: 'Late Bus', artist: 'Placeholder', src: '/music/late-bus.wav' },
-  { id: 'window-seat', title: 'Window Seat', artist: 'Placeholder', src: '/music/window-seat.wav' },
+  { id: 'sentaku-monotachi', title: 'Sentaku Monotachi', artist: 'AKB48', src: '/music/sentaku-monotachi.mp3' },
+  { id: 'inseki-no-kakuritsu', title: 'Inseki no Kakuritsu', artist: 'JKT48', src: '/music/inseki-no-kakuritsu.mp3' },
 ]
