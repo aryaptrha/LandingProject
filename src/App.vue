@@ -6,6 +6,7 @@ import EdgeInsights from './components/EdgeInsights.vue'
 import EdgeNetworkVisualization from './components/EdgeNetworkVisualization.vue'
 import LatencyIndicator from './components/LatencyIndicator.vue'
 import ChatContainer from './components/chat/ChatContainer.vue'
+import MusicPlayerWidget from './components/music/MusicPlayerWidget.vue'
 import ThemeToggle from './components/ThemeToggle.vue'
 import IconGameDev from './components/icons/IconGameDev.vue'
 import IconBackend from './components/icons/IconBackend.vue'
@@ -103,6 +104,12 @@ const menuItems = [
   <ChatContainer />
   <LatencyIndicator />
   <CloudflareEdgeStatus />
+  <!--
+    Last, so that when the drawer and the expanded edge widget overlap on a short
+    viewport — they share z-index 1000 — DOM order puts the drawer on top rather
+    than half-buried.
+  -->
+  <MusicPlayerWidget />
 </template>
 
 <style scoped>

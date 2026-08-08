@@ -1,0 +1,12 @@
+# Files that Vite copies out of public/ but which should not be served publicly.
+#
+# Vite's publicDir copy takes every entry verbatim, dotfiles included, so this
+# lands at dist/.assetsignore — which is exactly where Wrangler looks for it
+# (the assets directory root, per wrangler.toml's [assets] directory = "./dist").
+#
+# Gitignore syntax, resolved against that root. Wrangler already excludes this
+# file itself, plus _redirects and _headers, so they don't need listing here.
+
+# Maintainer docs. public/music/README.md explains how to add tracks; there is no
+# markdown under public/ that is meant to be reachable over HTTP.
+*.md
