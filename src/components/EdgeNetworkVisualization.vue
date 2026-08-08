@@ -1,15 +1,30 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useEdgeStatus } from '@/composables/useEdgeStatus'
+import { useLatency } from '@/composables/useLatency'
 import { prefersReducedMotion } from '@/utils/motion'
 
+/* The diagram reads its geography, protocol and cache verdict off the same
+   `/api/edge-status` payload the status widget uses — that response is built from
+   `request.cf`, so it already carries the visitor's city and country. `useVisitor`
+   would return the same fields from a second poller, so it is deliberately not
+   used here. Latency comes from `useLatency`, on a slower interval than the
+   corner indicator: this one only needs a travel speed, not a live readout. */
 const { data } = useEdgeStatus(30000)
+const { latency, error: latencyError } = useLatency(30000, 5000)
 
-const containerRef = ref<HTMLElement | null>(null)
-const isVisible = ref(false)
-const packetActive = ref(false)
-let animationInterval: ReturnType<typeof setInterval> | null = null
-let observer: IntersectionObserver | null = null
+/** One leg of the request. `idle` is the gap between cycles. */
+type Phase =
+  | 'idle'
+  | 'request-edge'
+  | 'edge-lookup'
+  | 'request-origin'
+  | 'response-origin'
+  | 'response-visitor'
+
+/** Cache lookup dwell at the edge node, and the pause between cycles. */
+const LOOKUP_MS = 260
+const IDLE_MS = 900
 
 /** Maps common IATA codes to friendly city/region names */
 const popNameMap: Record<string, string> = {
@@ -54,6 +69,30 @@ const popNameMap: Record<string, string> = {
   DOH: 'Doha Edge',
 }
 
+/**
+ * `cf-cache-status` values that mean the edge answered on its own. Everything
+ * else — MISS, EXPIRED, REVALIDATED, BYPASS, DYNAMIC, NONE — reached the Worker,
+ * so the second hop is real and gets animated. API routes are DYNAMIC in
+ * practice, which is why the full path is the common case here.
+ */
+const EDGE_SERVED = new Set(['HIT', 'STALE', 'UPDATING'])
+
+const containerRef = ref<HTMLElement | null>(null)
+const revealed = ref(false)
+const phase = ref<Phase>('idle')
+
+/* Duration captured at the start of a cycle. The CSS var and the JS timers both
+   read this one value, so a latency refresh mid-flight cannot leave a packet
+   still travelling after its timer has already advanced the phase. */
+const activeHopDuration = ref(420)
+
+const inView = ref(false)
+const pageVisible = ref(true)
+
+let running = false
+let timers: ReturnType<typeof setTimeout>[] = []
+let observer: IntersectionObserver | null = null
+
 const edgeLabel = computed(() => {
   if (!data.value?.colo || data.value.colo === 'unknown') {
     return 'Edge Node'
@@ -61,52 +100,210 @@ const edgeLabel = computed(() => {
   return popNameMap[data.value.colo] ?? `${data.value.colo} Edge`
 })
 
-function startAnimation() {
-  if (animationInterval) return
-  // The packet loop is decorative. With reduced motion requested, leave the
-  // diagram static rather than restarting the animation every 2 s.
-  if (prefersReducedMotion()) return
-  triggerPacket()
-  animationInterval = setInterval(triggerPacket, 2000)
-}
+/** Real visitor geography. Every `cf` field can come back as the literal string
+    'unknown' (see edge.service.ts), so each part is checked before it is shown
+    rather than letting "unknown, unknown" reach the label. */
+const visitorLabel = computed(() => {
+  const city = data.value?.city
+  const code = data.value?.countryCode
+  const hasCity = Boolean(city) && city !== 'unknown'
+  const hasCode = Boolean(code) && code !== 'unknown'
 
-function stopAnimation() {
-  if (animationInterval) {
-    clearInterval(animationInterval)
-    animationInterval = null
+  if (hasCity) return hasCode ? `${city}, ${code}` : (city as string)
+  return hasCode ? (code as string) : 'Visitor'
+})
+
+const cacheVerdict = computed(() => {
+  const status = (data.value?.cacheStatus ?? 'NONE').toUpperCase()
+  return { status, servedFromEdge: EDGE_SERVED.has(status) }
+})
+
+/** Same status→colour mapping the latency indicator uses, so a green packet in
+    the diagram means the same thing as a green dot in the corner widget. */
+const latencyColor = computed(() => {
+  if (!latency.value) return 'var(--text-medium)'
+  switch (latency.value.status) {
+    case 'excellent':
+      return 'var(--green-main)'
+    case 'good':
+      return 'var(--blue-main)'
+    case 'average':
+      return 'var(--yellow-main)'
+    case 'slow':
+      return 'var(--pink-main)'
   }
+})
+
+/**
+ * Travel time for one hop, scaled from the measured round trip.
+ *
+ * Not literal — a 24 ms trip drawn at real speed would be a single frame. The
+ * mapping is monotonic and clamped, so a slow connection visibly drags and a
+ * fast one snaps, while the slowest case still stays inside a lightweight
+ * motion budget rather than turning into a crawl.
+ */
+const hopDuration = computed(() => {
+  const ms = latency.value?.ms
+  if (ms == null) return 420
+  return Math.round(Math.min(720, Math.max(240, 220 + ms * 2.2)))
+})
+
+/** Node currently sending, for the 1.02 scale accent. */
+const activeNode = computed<'visitor' | 'edge' | 'origin' | null>(() => {
+  switch (phase.value) {
+    case 'request-edge':
+    case 'response-visitor':
+      return 'visitor'
+    case 'edge-lookup':
+    case 'request-origin':
+      return 'edge'
+    case 'response-origin':
+      return 'origin'
+    default:
+      return null
+  }
+})
+
+const hopOneMeta = computed(() => {
+  const parts: string[] = []
+  const protocol = data.value?.protocol
+  if (protocol && protocol !== 'unknown') parts.push(protocol)
+
+  if (latencyError.value) parts.push('unreachable')
+  else if (latency.value) parts.push(`${latency.value.ms} ms`)
+  else parts.push('measuring…')
+
+  return parts.join(' · ')
+})
+
+const hopTwoMeta = computed(() =>
+  cacheVerdict.value.servedFromEdge
+    ? `cache ${cacheVerdict.value.status} · origin skipped`
+    : `cache ${cacheVerdict.value.status}`,
+)
+
+/** One description for the whole diagram, so assistive tech gets the story
+    instead of five disconnected labels. */
+const flowDescription = computed(() => {
+  const trip = latencyError.value
+    ? 'round trip unreachable'
+    : latency.value
+      ? `${latency.value.ms} millisecond round trip`
+      : 'round trip still being measured'
+
+  const cache = cacheVerdict.value.servedFromEdge
+    ? `Cache ${cacheVerdict.value.status}, so the edge answers without reaching the Portfolio Worker.`
+    : `Cache ${cacheVerdict.value.status}, so the request continues to the Portfolio Worker and back.`
+
+  return `Request path: ${visitorLabel.value} to ${edgeLabel.value}, ${trip}. ${cache}`
+})
+
+function clearTimers() {
+  for (const timer of timers) clearTimeout(timer)
+  timers = []
 }
 
-function triggerPacket() {
-  packetActive.value = false
-  // Force reflow to restart animation
-  requestAnimationFrame(() => {
-    packetActive.value = true
+function after(ms: number, fn: () => void) {
+  timers.push(setTimeout(fn, ms))
+}
+
+/**
+ * Walks one request lifecycle: down to the edge, cache lookup, on to the Worker
+ * and back when the edge could not answer, then the response home. The shape of
+ * the cycle is decided by live cache status, so the diagram animates the path
+ * this request actually took.
+ */
+function runCycle() {
+  if (!running) return
+
+  const hop = hopDuration.value
+  activeHopDuration.value = hop
+
+  phase.value = 'request-edge'
+
+  after(hop, () => {
+    phase.value = 'edge-lookup'
+
+    after(LOOKUP_MS, () => {
+      if (cacheVerdict.value.servedFromEdge) {
+        phase.value = 'response-visitor'
+        after(hop, endCycle)
+        return
+      }
+
+      phase.value = 'request-origin'
+      after(hop, () => {
+        phase.value = 'response-origin'
+        after(hop, () => {
+          phase.value = 'response-visitor'
+          after(hop, endCycle)
+        })
+      })
+    })
   })
 }
 
+function endCycle() {
+  phase.value = 'idle'
+  after(IDLE_MS, runCycle)
+}
+
+function startAnimation() {
+  if (running) return
+  // The packet loop is decorative — the measurements it animates are all present
+  // as text. With reduced motion requested, leave the diagram static rather than
+  // running a timer chain that would burn battery for no visible benefit.
+  if (prefersReducedMotion()) return
+
+  running = true
+  runCycle()
+}
+
+function stopAnimation() {
+  running = false
+  clearTimers()
+  phase.value = 'idle'
+}
+
+function handleVisibilityChange() {
+  // IntersectionObserver does not fire when the tab goes to the background: the
+  // element is still intersecting, so without this the loop keeps ticking behind
+  // a hidden tab.
+  pageVisible.value = !document.hidden
+}
+
+watch([inView, pageVisible], ([visible, awake]) => {
+  if (visible && awake) startAnimation()
+  else stopAnimation()
+})
+
 onMounted(() => {
+  pageVisible.value = !document.hidden
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+
+  if (typeof IntersectionObserver !== 'function' || !containerRef.value) {
+    // No observer to lean on — reveal and animate unconditionally rather than
+    // leaving the panel faded out forever.
+    revealed.value = true
+    inView.value = true
+    return
+  }
+
   observer = new IntersectionObserver(
     ([entry]) => {
-      if (entry) {
-        isVisible.value = entry.isIntersecting
-        if (entry.isIntersecting) {
-          startAnimation()
-        } else {
-          stopAnimation()
-        }
-      }
+      if (!entry) return
+      inView.value = entry.isIntersecting
+      if (entry.isIntersecting) revealed.value = true
     },
     { threshold: 0.2 },
   )
 
-  if (containerRef.value) {
-    observer.observe(containerRef.value)
-  }
+  observer.observe(containerRef.value)
 })
 
 onUnmounted(() => {
   stopAnimation()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
   if (observer) {
     observer.disconnect()
     observer = null
@@ -115,53 +312,107 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="containerRef" class="edge-viz" aria-label="Edge network visualization">
+  <div
+    ref="containerRef"
+    class="edge-viz"
+    :class="{ 'edge-viz--revealed': revealed }"
+    :style="{
+      '--edge-viz-hop-duration': `${activeHopDuration}ms`,
+      '--edge-viz-response': latencyColor,
+    }"
+  >
     <h3 class="edge-viz__title">How Cloudflare Edge Serves This Site</h3>
 
-    <div class="edge-viz__flow">
-      <!-- Visitor node -->
-      <div class="edge-viz__node edge-viz__node--visitor">
-        <span class="edge-viz__node-icon">👤</span>
-        <span class="edge-viz__node-label">Visitor</span>
+    <div class="edge-viz__flow" role="img" :aria-label="flowDescription">
+      <!-- Visitor -->
+      <div
+        class="edge-viz__node edge-viz__node--visitor"
+        :class="{ 'edge-viz__node--active': activeNode === 'visitor' }"
+      >
+        <span class="edge-viz__node-icon" aria-hidden="true">👤</span>
+        <span class="edge-viz__node-label">{{ visitorLabel }}</span>
       </div>
 
-      <!-- Connection line 1 -->
-      <div class="edge-viz__connector">
-        <div class="edge-viz__line" />
-        <div
-          v-if="packetActive"
-          class="edge-viz__packet edge-viz__packet--down1"
-        />
-        <span class="edge-viz__arrow">↓</span>
+      <!-- Visitor ↔ Edge: always travelled -->
+      <div class="edge-viz__hop">
+        <div class="edge-viz__track">
+          <div class="edge-viz__line" />
+          <span class="edge-viz__caret" aria-hidden="true">
+            {{ phase === 'response-visitor' ? '↑' : '↓' }}
+          </span>
+          <div
+            v-if="phase === 'request-edge'"
+            key="request-edge"
+            class="edge-viz__packet edge-viz__packet--down"
+            aria-hidden="true"
+          />
+          <div
+            v-else-if="phase === 'response-visitor'"
+            key="response-visitor"
+            class="edge-viz__packet edge-viz__packet--up edge-viz__packet--response"
+            aria-hidden="true"
+          />
+        </div>
+        <span class="edge-viz__hop-meta">{{ hopOneMeta }}</span>
       </div>
 
-      <!-- Edge node -->
-      <div class="edge-viz__node edge-viz__node--edge">
-        <span class="edge-viz__node-icon">☁</span>
+      <!-- Edge -->
+      <div
+        class="edge-viz__node edge-viz__node--edge"
+        :class="{ 'edge-viz__node--active': activeNode === 'edge' }"
+      >
+        <span class="edge-viz__node-icon" aria-hidden="true">☁</span>
         <span class="edge-viz__node-label">{{ edgeLabel }}</span>
       </div>
 
-      <!-- Connection line 2 -->
-      <div class="edge-viz__connector">
-        <div class="edge-viz__line" />
-        <div
-          v-if="packetActive"
-          class="edge-viz__packet edge-viz__packet--down2"
-        />
-        <span class="edge-viz__arrow">↓</span>
+      <!-- Edge ↔ Worker: dimmed when the cache answered at the edge -->
+      <div
+        class="edge-viz__hop"
+        :class="{ 'edge-viz__hop--skipped': cacheVerdict.servedFromEdge }"
+      >
+        <div class="edge-viz__track">
+          <div class="edge-viz__line" />
+          <span class="edge-viz__caret" aria-hidden="true">
+            {{ phase === 'response-origin' ? '↑' : '↓' }}
+          </span>
+          <div
+            v-if="phase === 'request-origin'"
+            key="request-origin"
+            class="edge-viz__packet edge-viz__packet--down"
+            aria-hidden="true"
+          />
+          <div
+            v-else-if="phase === 'response-origin'"
+            key="response-origin"
+            class="edge-viz__packet edge-viz__packet--up edge-viz__packet--response"
+            aria-hidden="true"
+          />
+        </div>
+        <span class="edge-viz__hop-meta">{{ hopTwoMeta }}</span>
       </div>
 
-      <!-- Portfolio node -->
-      <div class="edge-viz__node edge-viz__node--portfolio">
-        <span class="edge-viz__node-icon">🌐</span>
-        <span class="edge-viz__node-label">Portfolio</span>
+      <!-- Origin Worker -->
+      <div
+        class="edge-viz__node edge-viz__node--portfolio"
+        :class="{ 'edge-viz__node--active': activeNode === 'origin' }"
+      >
+        <span class="edge-viz__node-icon" aria-hidden="true">🌐</span>
+        <span class="edge-viz__node-label">Portfolio Worker</span>
       </div>
     </div>
+
+    <p class="edge-viz__note">Packet speed tracks the live round-trip time.</p>
   </div>
 </template>
 
 <style scoped>
 .edge-viz {
+  /* Hop geometry lives here so the keyframes can derive travel distance from it
+     and the two stay in step if the height changes. */
+  --edge-viz-hop-height: 52px;
+  --edge-viz-packet-size: 8px;
+  --edge-viz-travel: calc(var(--edge-viz-hop-height) - var(--edge-viz-packet-size));
+
   padding: var(--space-xl) var(--space-lg);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -169,8 +420,21 @@ onUnmounted(() => {
   border-radius: var(--radius-lg);
   box-shadow: var(--glass-shadow);
   text-align: center;
-  max-width: 320px;
+  max-width: 360px;
   margin: var(--space-2xl) auto;
+
+  /* Fade and slight lift on first scroll-in. Reduced motion collapses the
+     transition to nothing via base.css, so the panel simply appears. */
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.edge-viz--revealed {
+  opacity: 1;
+  transform: none;
 }
 
 .edge-viz__title {
@@ -198,6 +462,12 @@ onUnmounted(() => {
   border-radius: var(--radius-btn);
   background: var(--bg-soft);
   min-width: 140px;
+  transition: transform 0.18s ease;
+}
+
+/* The sending node lifts by 2%. Scale only — no glow, no colour flash. */
+.edge-viz__node--active {
+  transform: scale(1.02);
 }
 
 .edge-viz__node--visitor {
@@ -226,13 +496,35 @@ onUnmounted(() => {
   color: var(--text-dark);
 }
 
-.edge-viz__connector {
+/* A hop spans the full width so its track can sit dead centre under the nodes
+   while the measurement label hangs off to the right. */
+.edge-viz__hop {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 48px;
+  width: 100%;
+  height: var(--edge-viz-hop-height);
+  transition: opacity 0.18s ease;
+}
+
+.edge-viz__hop--skipped {
+  opacity: 0.45;
+}
+
+.edge-viz__hop--skipped .edge-viz__line {
+  /* Dashed, because on a cache hit this leg is never travelled. */
+  background: none;
+  border-left: 2px dashed var(--border);
+  width: 0;
+}
+
+.edge-viz__track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
   width: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
   justify-content: center;
 }
 
@@ -246,45 +538,93 @@ onUnmounted(() => {
   transform: translateX(-50%);
 }
 
-.edge-viz__arrow {
+.edge-viz__caret {
   position: relative;
   z-index: 1;
   font-family: 'Pixelify Sans', monospace;
   font-size: 1rem;
+  line-height: 1;
+  color: var(--text-medium);
+}
+
+.edge-viz__hop-meta {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 18px);
+  transform: translateY(-50%);
+  white-space: nowrap;
+  text-align: left;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
   color: var(--text-medium);
 }
 
 .edge-viz__packet {
   position: absolute;
+  top: 0;
   left: 50%;
-  width: 8px;
-  height: 8px;
+  z-index: 2;
+  width: var(--edge-viz-packet-size);
+  height: var(--edge-viz-packet-size);
   background: var(--lavender-main);
   border: 1px solid var(--text-medium);
   border-radius: 2px;
-  transform: translateX(-50%);
-  opacity: 0;
 }
 
-.edge-viz__packet--down1 {
-  animation: packet-move 0.8s ease-in-out forwards;
+/* The return leg carries the latency-status colour, matching the dot in the
+   corner indicator: green excellent, blue good, yellow average, pink slow. */
+.edge-viz__packet--response {
+  background: var(--edge-viz-response);
 }
 
-.edge-viz__packet--down2 {
-  animation: packet-move 0.8s ease-in-out 0.6s forwards;
+/* Travel is pure transform, so each frame composites instead of forcing the
+   layout pass the old `top` animation cost. */
+.edge-viz__packet--down {
+  animation: edge-viz-down var(--edge-viz-hop-duration) linear both;
 }
 
-@keyframes packet-move {
+.edge-viz__packet--up {
+  animation: edge-viz-up var(--edge-viz-hop-duration) linear both;
+}
+
+@keyframes edge-viz-down {
   0% {
-    top: 0;
+    transform: translate(-50%, 0);
+    opacity: 0;
+  }
+  12% {
     opacity: 1;
   }
-  80% {
+  88% {
     opacity: 1;
   }
   100% {
-    top: 100%;
+    transform: translate(-50%, var(--edge-viz-travel));
     opacity: 0;
   }
+}
+
+@keyframes edge-viz-up {
+  0% {
+    transform: translate(-50%, var(--edge-viz-travel));
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, 0);
+    opacity: 0;
+  }
+}
+
+.edge-viz__note {
+  margin-top: var(--space-md);
+  font-size: 0.65rem;
+  color: var(--text-medium);
 }
 </style>

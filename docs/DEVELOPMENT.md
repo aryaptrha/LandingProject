@@ -131,7 +131,8 @@ src/
     ThemeToggle.vue       Day/night switch
     CloudflareEdgeStatus.vue      Colo/country/TLS readout
     LatencyIndicator.vue          RTT readout
-    EdgeNetworkVisualization.vue  Animated edge graphic
+    EdgeNetworkVisualization.vue  Request-path animation; hop speed from measured
+                                  RTT, second hop gated on cf-cache-status
     chat/                 ChatContainer, ChatHeader, ChatMessageList,
                           ChatMessageItem, ChatInput, ChatPromptChips,
                           ChatAvatarPicker, ChatSettingsModal,
