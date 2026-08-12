@@ -1,24 +1,96 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useEdgeStatus } from '@/composables/useEdgeStatus'
 import { useLatency } from '@/composables/useLatency'
 
 const { data, isLoading, error, refresh } = useEdgeStatus(30000)
 const { latency, isLoading: latencyLoading, error: latencyError, measure } = useLatency(20000, 5000)
 
-const isCollapsed = ref(true)
-const isMobile = ref(window.innerWidth < 768)
+/** Mirrors the `max-width: 767px` breakpoint in the styles below; keep the two in step. */
+const MOBILE_QUERY = '(max-width: 767px)'
+const STORAGE_KEY = 'portfolio_edge_collapsed'
 
-function handleResize() {
-  isMobile.value = window.innerWidth < 768
+function matchesMobile(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia(MOBILE_QUERY).matches
+}
+
+/** The visitor's own collapse choice, or null while they haven't made one. */
+function readStoredCollapsed(): boolean | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored === '1') return true
+    if (stored === '0') return false
+    return null
+  } catch {
+    // Private browsing, or storage blocked — fall back to the width-based default.
+    return null
+  }
+}
+
+const isMobile = ref(matchesMobile())
+/*
+ * Collapsed to a chip by default on a phone, where the panel would cover most of the page
+ * it is reporting on; open by default on a desktop, where it has a corner to itself. Those
+ * are the widths' existing defaults — what's new is that a remembered choice now outranks
+ * both, in either direction. The panel is a permanent fixture of the page, so a visitor who
+ * puts it away shouldn't have to put it away again on every visit.
+ */
+const isCollapsed = ref(readStoredCollapsed() ?? isMobile.value)
+
+watch(isCollapsed, (collapsed) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0')
+  } catch {
+    // The choice still holds for the rest of this session.
+  }
+})
+
+const toggleEl = ref<HTMLButtonElement | null>(null)
+const closeEl = ref<HTMLButtonElement | null>(null)
+
+/**
+ * Toggles the panel and hands focus to whichever control replaced the one that was used.
+ *
+ * Both buttons vanish when pressed — expanding unmounts the chip, collapsing hides the
+ * panel the ✕ is in — and focus on a vanished element falls back to `<body>`, which would
+ * drop a keyboard visitor at the top of the page on every toggle. The `activeElement`
+ * check keeps this to the case that needs it: a mouse click leaves the modality heuristic
+ * alone, so nothing gains a visible ring that didn't have one.
+ */
+async function setCollapsed(collapsed: boolean) {
+  const from = collapsed ? closeEl.value : toggleEl.value
+  const hadFocus = from !== null && document.activeElement === from
+
+  isCollapsed.value = collapsed
+  if (!hadFocus) return
+
+  // The chip has to mount, and the panel has to come back out of `display: none`, before
+  // either can take focus.
+  await nextTick()
+  const to = collapsed ? toggleEl.value : closeEl.value
+  to?.focus()
+}
+
+/*
+ * A media-query listener rather than a resize one: it fires only when the breakpoint is
+ * actually crossed instead of on every pixel of a window drag, and it reads the boundary
+ * from the same place the stylesheet does.
+ */
+let mobileQuery: MediaQueryList | null = null
+
+function onBreakpointChange(event: MediaQueryListEvent) {
+  isMobile.value = event.matches
 }
 
 onMounted(() => {
-  window.addEventListener('resize', handleResize)
+  if (typeof window.matchMedia !== 'function') return
+  mobileQuery = window.matchMedia(MOBILE_QUERY)
+  mobileQuery.addEventListener('change', onBreakpointChange)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
+  mobileQuery?.removeEventListener('change', onBreakpointChange)
+  mobileQuery = null
 })
 
 const lastUpdated = computed(() => {
@@ -69,22 +141,31 @@ const latencyStatusLabel = computed(() => {
 </script>
 
 <template>
-  <!-- Mobile: collapsible panel toggle -->
+  <!--
+    The panel's collapsed state: a chip standing in for it, at every width rather than
+    only on a phone. This is the largest of the floating widgets, and a visitor who wants
+    the corner of their screen back should be able to have it on a desktop too. It takes
+    the panel's slot in the rail, so the pair never appear at once — hence `aria-expanded`
+    being flatly false here and the ✕ inside the panel being the way back.
+  -->
   <button
-    v-if="isMobile"
+    v-if="isCollapsed"
+    ref="toggleEl"
+    type="button"
     class="edge-toggle"
-    :aria-expanded="!isCollapsed"
+    aria-expanded="false"
     aria-controls="edge-panel"
-    @click="isCollapsed = !isCollapsed"
+    title="Show edge status"
+    @click="setCollapsed(false)"
   >
-    <span class="edge-toggle__icon">⚡</span>
+    <span class="edge-toggle__icon" aria-hidden="true">⚡</span>
     <span class="edge-toggle__label">Edge Status</span>
   </button>
 
   <!-- Widget panel -->
   <Transition name="edge-fade">
     <div
-      v-show="!isMobile || !isCollapsed"
+      v-show="!isCollapsed"
       id="edge-panel"
       class="edge-widget"
       :class="{ 'edge-widget--mobile': isMobile }"
@@ -94,11 +175,15 @@ const latencyStatusLabel = computed(() => {
       <!-- Header -->
       <div class="edge-widget__header">
         <span class="edge-widget__title">☁ Cloudflare Edge</span>
+        <!-- Unconditional: the panel above is `v-show`n, so while collapsed it is
+             `display: none` and this button is untabbable anyway, in the DOM or not. -->
         <button
-          v-if="isMobile"
+          ref="closeEl"
+          type="button"
           class="edge-widget__close"
-          aria-label="Close edge status panel"
-          @click="isCollapsed = true"
+          aria-label="Collapse edge status panel"
+          title="Collapse"
+          @click="setCollapsed(true)"
         >
           ✕
         </button>
@@ -172,29 +257,49 @@ const latencyStatusLabel = computed(() => {
 </template>
 
 <style scoped>
+/*
+ * Neither the chip nor the panel positions itself any more: both are laid out by the
+ * `.widget-rail` in App.vue, which is what lets the latency meter close the gap when the
+ * panel collapses instead of floating beside an empty corner.
+ *
+ * Solid, not glass, now that this is a control a desktop visitor sees too — design.md
+ * reserves glass for surfaces and keeps buttons and chips solid.
+ */
 .edge-toggle {
-  position: fixed;
-  bottom: 16px;
-  right: 16px;
-  z-index: 999;
   display: flex;
   align-items: center;
   gap: 6px;
+  /* A legal touch target on its own, unaided by the panel it replaces. */
+  min-height: 44px;
   padding: 8px 14px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
+  background: var(--surface-muted);
   border: 2px solid var(--border);
   border-radius: var(--radius-btn);
-  box-shadow: var(--glass-shadow);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
   font-family: 'Pixelify Sans', monospace;
   font-size: 0.85rem;
   color: var(--text-dark);
   cursor: pointer;
-  transition: transform 0.15s ease;
+  /* The rail drops pointer events so its empty upper column doesn't eat clicks meant for
+     the page; anything that wants them takes them back. */
+  pointer-events: auto;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .edge-toggle:hover {
-  transform: scale(1.03);
+  /* Fill as well as scale: the panel's own buttons use this blue, and design.md asks for
+     a darker fill on hover rather than movement alone. */
+  background: var(--blue-light);
+  border-color: var(--blue-main);
+  transform: scale(1.02);
+}
+
+.edge-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .edge-toggle__icon {
@@ -206,10 +311,6 @@ const latencyStatusLabel = computed(() => {
 }
 
 .edge-widget {
-  position: fixed;
-  bottom: 16px;
-  right: 16px;
-  z-index: 1000;
   width: 260px;
   padding: 14px;
   background: var(--glass-bg);
@@ -218,10 +319,19 @@ const latencyStatusLabel = computed(() => {
   border-radius: var(--radius-lg);
   box-shadow: var(--glass-shadow);
   font-family: 'Nunito', sans-serif;
+  pointer-events: auto;
 }
 
+/*
+ * Spans the viewport at phone widths instead of sitting in the rail — 260px in a corner is
+ * most of a phone's width anyway. `position: fixed` is what takes it back out of the rail's
+ * flow; the rail sets no transform, so the containing block here is still the viewport.
+ */
 .edge-widget--mobile {
   position: fixed;
+  /* The 60px used to be clearance for the chip below it. The chip is gone while this is
+     open now, but the band isn't empty — the chat launcher sits in it — so the offset
+     stays and the phone layout is left exactly as it was. */
   bottom: 60px;
   right: 16px;
   left: 16px;
@@ -244,18 +354,35 @@ const latencyStatusLabel = computed(() => {
   color: var(--text-dark);
 }
 
+/* 44x44 per design.md, with the overflow pulled back out of the header row by negative
+   margins so the header keeps the height it had. */
 .edge-widget__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin: -8px -10px -8px 0;
   background: none;
   border: none;
+  border-radius: var(--radius-btn);
   font-size: 1rem;
   cursor: pointer;
   color: var(--text-medium);
-  padding: 2px 6px;
-  border-radius: 4px;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .edge-widget__close:hover {
-  background: var(--divider);
+  color: var(--text-dark);
+  background: var(--surface-hover-wash);
+}
+
+.edge-widget__close:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .edge-widget__body {

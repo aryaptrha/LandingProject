@@ -102,12 +102,23 @@ const menuItems = [
   <!-- Floating Widgets -->
   <ThemeToggle />
   <ChatContainer />
-  <LatencyIndicator />
-  <CloudflareEdgeStatus />
   <!--
-    Last, so that when the drawer and the expanded edge widget overlap on a short
-    viewport — they share z-index 1000 — DOM order puts the drawer on top rather
-    than half-buried.
+    These two share a rail so they lay each other out. The edge panel collapses to a chip
+    now, and a flex row is what lets the latency meter slide over to meet it instead of
+    being left beside a gap — it used to hardcode the panel's 260px width into its own
+    `right` offset, which quietly assumed the panel was always open. Latency first, so it
+    stays on the panel's left as before.
+  -->
+  <div class="widget-rail">
+    <LatencyIndicator />
+    <CloudflareEdgeStatus />
+  </div>
+  <!--
+    Last, and on z-index 1001: this is the one widget a visitor can park anywhere, so
+    it has to win over the fixed-corner widgets it may be dragged across rather than
+    end up half-buried under one. That beats the latency and edge-status widgets on
+    z-index alone; against ThemeToggle and the chat launcher, both also on 1001, it is
+    this position in DOM order that settles the tie — so keep it last.
   -->
   <MusicPlayerWidget />
 </template>
@@ -115,6 +126,26 @@ const menuItems = [
 <style scoped>
 .landing {
   padding: var(--space-2xl) 0;
+}
+
+/*
+ * The bottom-right corner, shared. Sized to its contents so it claims no more of the
+ * screen than the widgets in it, and `flex-end` keeps the short latency meter sitting on
+ * the same baseline as the tall edge panel. Anything hidden — the meter below 768px, the
+ * panel while collapsed — drops out of the flow and the rail shrinks to what's left.
+ */
+.widget-rail {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  /* The rail is as tall as its tallest child, which leaves dead space above the shorter
+     one. Without this, that space would swallow clicks meant for the page behind it; each
+     child takes pointer events back for itself. */
+  pointer-events: none;
 }
 
 .landing__header {

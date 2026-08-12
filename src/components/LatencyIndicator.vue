@@ -60,11 +60,15 @@ const statusLabel = computed(() => {
 </template>
 
 <style scoped>
+/*
+ * Laid out by the `.widget-rail` in App.vue rather than positioned here. It used to be
+ * `right: 284px` — the edge panel's 260px width plus the gap, hardcoded — which only held
+ * while that panel could never be collapsed. The rail places the two instead.
+ */
 .latency {
-  position: fixed;
-  bottom: 16px;
-  right: 284px;
-  z-index: 1000;
+  /* The rail drops pointer events so its empty upper column doesn't eat clicks meant for
+     the page; anything that wants them takes them back. */
+  pointer-events: auto;
   display: inline-flex;
   flex-direction: column;
   align-items: center;

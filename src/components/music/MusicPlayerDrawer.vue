@@ -78,17 +78,29 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 /* Glass here is on-spec: design.md allows it for menus, dialogs and sidebars.
    The solid controls inside it stay solid. */
 .music-drawer {
-  position: fixed;
-  /* Sits just left of the 44px pull tab, so the tab stays clickable while open. */
-  right: 44px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 1000;
+  /*
+   * Laid out, not positioned: this panel is a flex sibling of the pull tab inside the
+   * dock in MusicPlayerWidget, which is the fixed-position element and the one that
+   * carries the z-index. Being a sibling is what keeps the panel flush against the
+   * tab — and on the correct side of it — wherever the visitor has parked the pair,
+   * with no coordinates passed between the two.
+   */
+  position: relative;
+  /* The dock drops pointer events so its empty column doesn't eat clicks; anything
+     that wants them takes them back. */
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   width: 300px;
+  /* Leaves room for the 44px tab plus a margin, so a narrow phone gets a narrower
+     panel instead of one pushed off the far edge. */
+  max-width: calc(100vw - 44px - var(--space-lg));
   max-height: min(70vh, 520px);
   background: var(--glass-bg);
+  /* Depends on no ancestor in the dock being a backdrop root — a transform, filter,
+     opacity or will-change on the dock would leave this sampling the dock's own
+     contents and render it unblurred. See the note in useEdgeDock. */
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1.5px solid var(--border);
@@ -99,11 +111,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 /*
  * The <Transition> that drives these lives in MusicPlayerWidget, but the classes
- * belong here. Vite emits this async component's CSS as a separate file injected
- * after the main stylesheet, so an equally-specific rule over in the widget would
- * lose to `.music-drawer` above on source order alone — the transform would
- * silently never apply and the panel would fade without moving. The compound
- * selector wins regardless of which stylesheet lands first.
+ * belong here, with the panel they animate. Vite emits this async component's CSS as
+ * its own file, injected after the main stylesheet, and nothing guarantees which of
+ * the two lands first — so the compound `.music-drawer.music-drawer-anim-*` selector
+ * outranks anything equally specific in either sheet, and the animation cannot be
+ * silently overridden into a plain fade.
  */
 .music-drawer.music-drawer-anim-enter-active,
 .music-drawer.music-drawer-anim-leave-active {
@@ -115,9 +127,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 .music-drawer.music-drawer-anim-enter-from,
 .music-drawer.music-drawer-anim-leave-to {
   opacity: 0;
-  /* translateY(-50%) has to be repeated: it is the drawer's vertical centring, and
-     omitting it here would fling the panel downward mid-transition. */
-  transform: translateY(-50%) translateX(12px) scale(0.98);
+  /* Slides out of the tab and folds back into it, so the direction has to follow
+     whichever edge the dock is on. `--music-dock-slide` is set per side over in
+     MusicPlayerWidget and inherited through the dock; the fallback is the right-edge
+     value, which is where the dock starts. */
+  transform: translateX(var(--music-dock-slide, 12px)) scale(0.98);
 }
 
 .music-drawer__header {
@@ -213,10 +227,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 @media (max-width: 480px) {
   .music-drawer {
-    /* Still clear of the tab, but now stretching to the left edge instead of
-       keeping a fixed width there would not fit. */
-    left: 10px;
-    width: auto;
+    /* Width already gives way via `max-width` above; this is only about leaving more
+       of a short viewport visible behind the panel. */
     max-height: min(64vh, 460px);
   }
 }
