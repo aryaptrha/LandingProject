@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AvengerPixelAvatar from './AvengerPixelAvatar.vue'
 import DoctorStrangePortalEffect from './DoctorStrangePortalEffect.vue'
 import { AVENGERS_AVATARS, type AvengerAvatarInfo } from './avengerAvatars'
@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'select', avatarId: string): void
+  (e: 'dismiss'): void
 }>()
 
 const selectedId = ref<string>(props.initialAvatarId || 'ironman')
@@ -19,10 +20,32 @@ const portalOrigin = ref<{ x?: number; y?: number }>({})
 const overlayRef = ref<HTMLElement | null>(null)
 const optionRefs = ref<Record<string, HTMLElement | null>>({})
 
+// The grid is a fixed 3x3 (nine avatars, grid-template-columns: repeat(3, 1fr)).
+// Up/Down move by a whole row, so the row stride is the column count; Left/Right
+// move by one across the flat list. Edges clamp rather than wrap: a 2D grid makes
+// wrapping ambiguous (Up from the top row would have to guess a column), so a
+// consistent clamp in all four directions is the predictable choice.
+const GRID_COLUMNS = 3
+
 function setOptionRef(id: string, el: any) {
   if (el) {
     optionRefs.value[id] = el as HTMLElement
   }
+}
+
+// Roving tabindex: exactly one radio sits in the tab order at a time — the selected
+// one, or the first if the stored id matches nothing. Every other radio is
+// tabindex="-1" and reachable only via the arrow keys below, so the grid is a
+// single tab stop instead of nine.
+const tabbableIndex = computed(() => {
+  const idx = AVENGERS_AVATARS.findIndex((a) => a.id === selectedId.value)
+  return idx === -1 ? 0 : idx
+})
+
+function focusOption(id: string) {
+  // The option elements are already rendered whenever this runs: arrow navigation
+  // happens after mount, and the initial open focus is deferred to onMounted.
+  optionRefs.value[id]?.focus()
 }
 
 function handleSelect(avatar: AvengerAvatarInfo) {
@@ -48,11 +71,77 @@ function handleSelect(avatar: AvengerAvatarInfo) {
   }
 }
 
+// Selection follows focus, as an ARIA radiogroup expects: moving the roving focus
+// also selects. That routes through the same handleSelect a click uses, so arrowing
+// onto Doctor Strange fires his portal (and computes its origin from the tile rect)
+// exactly as clicking does — the easter egg keeps working under keyboard selection.
+function moveSelection(index: number) {
+  const avatar = AVENGERS_AVATARS[index]
+  if (!avatar) return
+  handleSelect(avatar)
+  focusOption(avatar.id)
+}
+
+function handleGridKeydown(event: KeyboardEvent) {
+  const current = AVENGERS_AVATARS.findIndex((a) => a.id === selectedId.value)
+  const start = current === -1 ? 0 : current
+  const last = AVENGERS_AVATARS.length - 1
+
+  let next = start
+  switch (event.key) {
+    case 'ArrowRight':
+      next = Math.min(start + 1, last)
+      break
+    case 'ArrowLeft':
+      next = Math.max(start - 1, 0)
+      break
+    case 'ArrowDown':
+      next = Math.min(start + GRID_COLUMNS, last)
+      break
+    case 'ArrowUp':
+      next = Math.max(start - GRID_COLUMNS, 0)
+      break
+    case 'Home':
+      next = 0
+      break
+    case 'End':
+      next = last
+      break
+    default:
+      return
+  }
+
+  // A key we handle must not also scroll the popup/page — preventDefault even at a
+  // clamped edge, where next === start and only the scroll suppression matters.
+  event.preventDefault()
+  if (next !== start) moveSelection(next)
+}
+
+// Escape lives on a mount-scoped window listener (mirrors MusicPlayerDrawer): it
+// exists exactly while the picker is mounted and unbinds on close. We only emit —
+// the parent decides whether dismissing is allowed (closeAvatarPicker no-ops until
+// an avatar is chosen, keeping the first-visit picker mandatory) and guards its own
+// popup-Escape so one press never both dismisses the picker and closes the chat.
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') emit('dismiss')
+}
+
 function handleConfirm() {
   if (selectedId.value) {
     emit('select', selectedId.value)
   }
 }
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  // Pull focus into the picker on open so keyboard users land on the current choice
+  // (or the first avatar) rather than on <body>. This only focuses, never selects,
+  // so a preselected Doctor Strange does not fire the portal merely by opening.
+  const focusId = AVENGERS_AVATARS[tabbableIndex.value]?.id
+  if (focusId) focusOption(focusId)
+})
+
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
@@ -74,9 +163,14 @@ function handleConfirm() {
       </div>
 
       <!-- 3x3 Grid -->
-      <div class="avatar-grid" role="radiogroup" aria-label="Daftar Avatar Marvel Avengers">
+      <div
+        class="avatar-grid"
+        role="radiogroup"
+        aria-label="Daftar Avatar Marvel Avengers"
+        @keydown="handleGridKeydown"
+      >
         <button
-          v-for="avatar in AVENGERS_AVATARS"
+          v-for="(avatar, index) in AVENGERS_AVATARS"
           :key="avatar.id"
           :ref="(el) => setOptionRef(avatar.id, el)"
           type="button"
@@ -85,6 +179,7 @@ function handleConfirm() {
             'avatar-option--selected': selectedId === avatar.id,
             'avatar-option--drstrange': avatar.id === 'drstrange',
           }"
+          :tabindex="index === tabbableIndex ? 0 : -1"
           @click="handleSelect(avatar)"
           :aria-checked="selectedId === avatar.id"
           role="radio"
@@ -102,6 +197,7 @@ function handleConfirm() {
         <button
           type="button"
           class="confirm-avatar-btn"
+          aria-label="Mulai chat dengan avatar yang dipilih"
           @click="handleConfirm"
         >
           Mulai Chat 🚀
@@ -201,6 +297,14 @@ function handleConfirm() {
   transform: scale(0.97);
 }
 
+/* A dark focus ring, independent of the blue/orange selection tint, so the roving
+   focus is visible even where it lands on the already-selected tile and does not
+   rely on colour alone to say "you are here". */
+.avatar-option:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .avatar-option--selected {
   border-color: var(--select-ring);
   background: var(--select-bg);
@@ -257,7 +361,13 @@ function handleConfirm() {
 }
 
 .confirm-avatar-btn {
+  /* Flex-centred with an explicit floor so the control always clears the 44x44
+     minimum hit area even though its padding alone would fall a few px short. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
+  min-height: 44px;
   padding: 9px 12px;
   background: var(--blue-main);
   border: 1.5px solid var(--blue-deep);
@@ -269,6 +379,11 @@ function handleConfirm() {
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+.confirm-avatar-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .confirm-avatar-btn:hover {

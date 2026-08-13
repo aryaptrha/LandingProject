@@ -1,7 +1,11 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 
-/** The floating panels that compete for the bottom of a phone screen. */
-export type MobilePanelId = 'chat' | 'edge'
+/**
+ * The floating panels that compete for room on a phone screen: the chat popup and the
+ * edge-status band across the bottom, plus the music drawer docked to a side edge. All
+ * three sit near z-index 1001, so on a phone only one may be open at a time.
+ */
+export type MobilePanelId = 'chat' | 'edge' | 'music'
 
 /**
  * The width below which the edge panel leaves the widget rail and becomes a band across

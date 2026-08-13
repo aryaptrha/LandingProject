@@ -1,6 +1,9 @@
 /* Design System: 2D Pixel × Glass UI × Pastel Theme */
 
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Pixelify+Sans:wght@400;500;600;700&display=swap');
+/* Fonts (Nunito 400-700, Pixelify Sans 400-700, display=swap) are loaded via
+   <link> in index.html, not an @import here. A CSS @import is render-blocking and
+   only discovered after this stylesheet parses; the <head> preconnect + <link>
+   lets the browser fetch the font CSS in parallel with the app bundle. */
 
 :root {
   /* Background */
@@ -58,7 +61,7 @@
 
   /* Hover step for a solid blue control: darker in day, lighter at night, so the
      direction of the change always reads as "raised". This is a fill/border token,
-     never text — the pair that has to clear 4.5:1 is `--text-on-accent` on it. */
+     never text — the pair that has to clear 4.5:1 is `--text-dark` on it. */
   --blue-deep: #94CADC;
 
   /* Status. Never the only signal for state — always paired with text or shape. */
@@ -118,7 +121,7 @@
 /* Night palette.
    Applied by `useTheme` as `data-theme="night"` on <html>. Flat dusk tones only —
    no gradients, no glow, no neon, per design.md. The pastel accents are darkened
-   rather than dropped, so hue identity survives and `--text-on-accent` can flip
+   rather than dropped, so hue identity survives and `--text-dark` can flip
    to a light value and still clear 4.5:1. Pixel-art SVG fills are deliberately
    untouched: they are illustrations, not theme surfaces. */
 :root[data-theme='night'] {

@@ -2,7 +2,6 @@ import { Hono } from 'hono'
 import { edge } from './routes/edge'
 import { latency } from './routes/latency'
 import { visitor } from './routes/visitor'
-import { cache } from './routes/cache'
 import { chat } from './routes/chat'
 import { config } from './routes/config'
 import { guestbook } from './routes/guestbook'
@@ -16,7 +15,6 @@ const api = new Hono<AppEnv>()
 api.route('/api', edge)
 api.route('/api', latency)
 api.route('/api', visitor)
-api.route('/api', cache)
 api.route('/api', chat)
 
 // Storage-backed routes. These are the only ones that touch D1 or KV, and each

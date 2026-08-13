@@ -59,17 +59,19 @@ src/
     CloudflareEdgeStatus.vue, LatencyIndicator.vue, EdgeNetworkVisualization.vue
                           Floating edge-telemetry widgets
     chat/                 Chat widget (container, header, message list + item,
-                          input, prompt chips, avatar picker, settings modal)
+                          input, prompt chips, avatar picker, Arya pixel face)
     icons/                Pixel-art SVG icons
-  composables/            useChat, useTheme, useEdgeStatus, useLatency, useVisitor
+  composables/            useChat, useTheme, useEdgeStatus, useLatency, useVisitLogger
   utils/
     sse.ts                Tolerant SSE reader (pure, no Vue)
     motion.ts             prefers-reduced-motion check for JS-driven loops
+    latency.ts            Latency thresholds + status colours (pure, no Vue)
+    markdown.ts           Escape-first Markdown subset for chat (pure, no Vue)
   worker/
     index.ts              Entry: /api/* → Hono, everything else → env.ASSETS
     router.ts             Mounts route modules under /api
     routes/               edge.ts (serves /api/edge-status), latency, visitor,
-                          cache, chat
+                          chat, config, guestbook, insights
     services/             cf-property extraction
     types/                Env bindings + response shapes
 ```
@@ -86,12 +88,17 @@ only the worker config pulls in `@cloudflare/workers-types`.
 | `/api/edge-status` | GET | Colo, country, TLS, ray ID from `request.cf` |
 | `/api/latency` | GET | Server timestamp; the client computes RTT |
 | `/api/chat` | POST | Proxies to the persona backend, or a canned reply |
-| `/api/visitor` | GET | Implemented, **no client consumer** |
-| `/api/cache` | GET | Implemented, **no client consumer** |
+| `/api/visitor` | GET | Logs one visit; pinged once per load from `App.vue` |
+| `/api/config` | GET | Site config consumed by `useSiteConfig` |
+| `/api/guestbook` | GET, POST | Entries and submission — D1 |
+| `/api/guestbook/stats` | GET | Aggregates for the insights panel — D1 |
+| `/api/insights` | GET | Visit + guestbook rollups — D1 |
 
-Everything except `/api/chat` needs zero configuration — it reads `request.cf`
-and CF headers, so it works the moment the worker is deployed. Locally those
-values are miniflare placeholders or `unknown`.
+The `request.cf`-only routes (`edge-status`, `latency`) need zero configuration
+and work the moment the worker is deployed; locally their values are miniflare
+placeholders or `unknown`. `/api/chat` needs the persona secrets, and the
+storage-backed routes need D1 and KV — run `npm run db:migrate` before using
+them locally.
 
 ## Docs
 

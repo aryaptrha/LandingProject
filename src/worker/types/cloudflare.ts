@@ -39,15 +39,6 @@ export interface VisitorData {
 }
 
 /**
- * Cache status information.
- */
-export interface CacheData {
-  cacheStatus: string
-  cacheControl: string
-  etag: string
-}
-
-/**
  * Standard API success envelope.
  */
 export interface ApiSuccess<T> {

@@ -1,31 +1,79 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useLatency } from '@/composables/useLatency'
+import { latencyStatusColor, latencyStatusLabel } from '@/utils/latency'
 
-const { latency, isLoading, error, measure } = useLatency(20000, 5000)
+// The poll owns its own cadence now, so this call takes no arguments — the old
+// (interval, timeout) pair is gone. `history` is the shared ring buffer of recent
+// successful readings that feeds the sparkline below.
+const { latency, isLoading, error, measure, history } = useLatency()
 
-const statusColor = computed(() => {
-  if (!latency.value) return 'var(--text-medium)'
-  switch (latency.value.status) {
-    case 'excellent':
-      return 'var(--green-main)'
-    case 'good':
-      return 'var(--blue-main)'
-    case 'average':
-      return 'var(--yellow-main)'
-    case 'slow':
-      return 'var(--pink-main)'
-  }
+// The status→colour map and the title-cased label live in `@/utils/latency`,
+// shared with the edge panel and the network diagram so a colour here always
+// means the same round-trip band as the same colour there. Only the "no reading
+// yet" fallbacks (`var(--text-medium)` / '—') stay local: they describe the
+// absence of a reading, not a status, so they have no place in the shared maps.
+const statusColor = computed(() =>
+  latency.value ? latencyStatusColor(latency.value.status) : 'var(--text-medium)',
+)
+
+const statusLabel = computed(() =>
+  latency.value ? latencyStatusLabel(latency.value.status) : '—',
+)
+
+// role="status" is a live region, but its aria-label was a fixed string, so a
+// screen reader landing on the region heard only "Edge latency indicator" — the
+// measured number never entered the region's accessible name. Deriving the name
+// from the current reading exposes the value and its band on navigation, not only
+// on the live-region content update.
+const ariaLabel = computed(() => {
+  if (error.value) return `Edge latency: ${error.value}`
+  if (!latency.value) return 'Edge latency: measuring'
+  return `Edge latency: ${latency.value.ms} milliseconds, ${statusLabel.value}`
 })
 
-const statusLabel = computed(() => {
-  if (!latency.value) return '—'
-  return latency.value.status.charAt(0).toUpperCase() + latency.value.status.slice(1)
+// --- D2 sparkline -----------------------------------------------------------
+// A flat trend line over the shared latency history. Authored on a small integer
+// grid and rendered 1:1 (viewBox size == pixel size, no stretch) with
+// shape-rendering="crispEdges", so segments step in hard pixels instead of
+// smoothing into a curve — per design.md's no-blur / no-anti-alias rule. No fill,
+// no gradient, no glow: just a 2px stroke coloured by the current status.
+const SPARK_W = 64
+const SPARK_H = 16
+// Vertical inset so a peak or trough is not clipped by the 2px stroke at the edge.
+const SPARK_PAD = 2
+
+const sparkPoints = computed(() => {
+  const data = history.value
+  // Zero or one sample cannot describe a trend: a single point draws nothing and
+  // a lone flat segment would falsely read as "stable". Show no line until at
+  // least two successful readings exist (~two poll ticks after mount); the number
+  // and status text carry the widget until then.
+  if (data.length < 2) return ''
+
+  const min = Math.min(...data)
+  const max = Math.max(...data)
+  const span = max - min
+  const usableH = SPARK_H - SPARK_PAD * 2
+  const stepX = SPARK_W / (data.length - 1)
+
+  return data
+    .map((ms, i) => {
+      const x = Math.round(i * stepX)
+      // Auto-scale within the current window so small variations stay visible —
+      // the absolute figure is already shown as text above. When every sample is
+      // equal (span 0) there is no trend, so pin the line to mid-height.
+      const norm = span === 0 ? 0.5 : (ms - min) / span
+      // Higher ms sits higher, so a latency spike reads as an upward peak.
+      const y = Math.round(SPARK_PAD + (1 - norm) * usableH)
+      return `${x},${y}`
+    })
+    .join(' ')
 })
 </script>
 
 <template>
-  <div class="latency" role="status" aria-label="Edge latency indicator">
+  <div class="latency" role="status" :aria-label="ariaLabel">
     <div class="latency__header">
       <span class="latency__title">Latency</span>
       <span
@@ -55,6 +103,31 @@ const statusLabel = computed(() => {
       >
         {{ statusLabel }}
       </span>
+
+      <!--
+        D2 trend. This is a redundant visual summary of the very figure already
+        read out as text above, so it is aria-hidden: announcing it would make a
+        screen reader read the same number twice. Rendered at its intrinsic 64x16
+        (never scaled) so the crisp-edges stroke lands on whole pixels.
+      -->
+      <svg
+        v-if="sparkPoints"
+        class="latency__spark"
+        :viewBox="`0 0 ${SPARK_W} ${SPARK_H}`"
+        :width="SPARK_W"
+        :height="SPARK_H"
+        shape-rendering="crispEdges"
+        aria-hidden="true"
+      >
+        <polyline
+          :points="sparkPoints"
+          fill="none"
+          :stroke="statusColor"
+          stroke-width="2"
+          stroke-linecap="butt"
+          stroke-linejoin="miter"
+        />
+      </svg>
     </div>
   </div>
 </template>
@@ -128,6 +201,18 @@ const statusLabel = computed(() => {
   font-size: 0.7rem;
   font-weight: 600;
   transition: color 0.3s ease;
+}
+
+/*
+ * Trend sparkline. Sized to its intrinsic 64x16 via the SVG width/height
+ * attributes and deliberately not stretched, so one SVG unit maps to one CSS
+ * pixel and the crisp-edges stroke stays on the pixel grid. No animation is
+ * attached: the line simply appears once two samples exist, which keeps this off
+ * the JS-loop path that would need a prefersReducedMotion() guard.
+ */
+.latency__spark {
+  display: block;
+  margin-top: var(--space-xs);
 }
 
 /* Error */

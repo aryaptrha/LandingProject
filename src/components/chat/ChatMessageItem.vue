@@ -1,42 +1,66 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import type { ChatMessage } from '../../composables/useChat'
 import AvengerPixelAvatar from './AvengerPixelAvatar.vue'
+import AryaPixelFace from './AryaPixelFace.vue'
+import { renderMarkdown } from '../../utils/markdown'
 
 const props = defineProps<{
   message: ChatMessage
   userAvatarId?: string
 }>()
 
-const isCopied = ref(false)
+/*
+ * Assistant content rendered through the shared Markdown renderer (computed so it
+ * only re-runs when the streamed content changes, not on every parent re-render).
+ *
+ * SECURITY: renderMarkdown HTML-escapes the entire string before emitting any
+ * markup, so the `v-html` in the template can only ever inject tags this app
+ * authored from a fixed allowlist. Do not point that v-html at any string that
+ * has not passed through renderMarkdown.
+ */
+const renderedContent = computed(() => renderMarkdown(props.message.content))
 
-function copyContent() {
+/*
+ * `message.timestamp` is an ISO 8601 instant for messages created by the current
+ * build; it is formatted for display only here. MIGRATION: messages persisted by
+ * older builds hold a pre-formatted locale string like "14:32", which is not
+ * valid ISO — so when Date parsing fails, show the stored value verbatim rather
+ * than "Invalid Date".
+ */
+const displayTime = computed(() => {
+  const ts = props.message.timestamp
+  const parsed = new Date(ts)
+  if (Number.isNaN(parsed.getTime())) return ts
+  return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+})
+
+const isCopied = ref(false)
+// Held so it can be cancelled on unmount — clearing the chat tears down message
+// items mid-timeout, and a stray callback would touch a disposed component.
+let copyResetTimer: ReturnType<typeof setTimeout> | undefined
+
+async function copyContent() {
   if (!props.message.content) return
-  navigator.clipboard.writeText(props.message.content)
+  try {
+    await navigator.clipboard.writeText(props.message.content)
+  } catch {
+    // writeText rejects on denied permission or a non-secure origin (where the
+    // async Clipboard API is unavailable entirely). Never flip to the "Copied!"
+    // state on failure — a false confirmation is worse than no feedback.
+    return
+  }
   isCopied.value = true
-  setTimeout(() => {
+  if (copyResetTimer !== undefined) clearTimeout(copyResetTimer)
+  copyResetTimer = setTimeout(() => {
     isCopied.value = false
+    copyResetTimer = undefined
   }, 1800)
 }
 
-function renderFormattedText(content: string): string {
-  if (!content) return ''
-  // Escape HTML characters
-  let escaped = content
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-
-  // Bold **text**
-  escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-  // Italic *text* or _text_
-  escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>')
-  escaped = escaped.replace(/_(.*?)_/g, '<em>$1</em>')
-  // Inline code `code`
-  escaped = escaped.replace(/`(.*?)`/g, '<code class="inline-code">$1</code>')
-
-  return escaped
-}
+onUnmounted(() => {
+  if (copyResetTimer !== undefined) clearTimeout(copyResetTimer)
+})
 </script>
 
 <template>
@@ -50,20 +74,8 @@ function renderFormattedText(content: string): string {
   >
     <!-- Avatar -->
     <div class="message-item__avatar" :title="message.role === 'user' ? 'You' : 'Arya'">
-      <!-- Assistant Pixel Avatar -->
-      <svg v-if="message.role === 'assistant'" viewBox="0 0 16 16" width="24" height="24" class="pixel-art">
-        <rect width="16" height="16" fill="#D9C8F1" rx="3" />
-        <rect x="3" y="2" width="10" height="3" fill="#2F2F2F" />
-        <rect x="2" y="4" width="2" height="4" fill="#2F2F2F" />
-        <rect x="12" y="4" width="2" height="4" fill="#2F2F2F" />
-        <rect x="4" y="5" width="8" height="6" fill="#FFE0BD" />
-        <rect x="5" y="7" width="1" height="2" fill="#2F2F2F" />
-        <rect x="10" y="7" width="1" height="2" fill="#2F2F2F" />
-        <rect x="4" y="9" width="1" height="1" fill="#F6C6D3" />
-        <rect x="11" y="9" width="1" height="1" fill="#F6C6D3" />
-        <rect x="7" y="10" width="2" height="1" fill="#D27D7D" />
-        <rect x="3" y="11" width="10" height="4" fill="#B8E0C8" />
-      </svg>
+      <!-- Assistant Pixel Avatar (shared face component; see AryaPixelFace.vue) -->
+      <AryaPixelFace v-if="message.role === 'assistant'" :size="24" />
 
       <!-- User Pixel Avatar -->
       <AvengerPixelAvatar
@@ -88,7 +100,7 @@ function renderFormattedText(content: string): string {
         <span class="message-item__sender">
           {{ message.role === 'user' ? 'You' : 'Arya' }}
         </span>
-        <span class="message-item__time">{{ message.timestamp }}</span>
+        <span class="message-item__time">{{ displayTime }}</span>
       </div>
 
       <!-- Bubble Content -->
@@ -109,29 +121,34 @@ function renderFormattedText(content: string): string {
           </div>
         </div>
 
-        <!-- Normal message text with inline formatting -->
-        <div v-else class="message-item__text">
-          <p
-            v-for="(line, idx) in message.content.split('\n')"
-            :key="idx"
-            v-html="renderFormattedText(line)"
-          ></p>
-        </div>
-
-        <!-- Copy button for Assistant -->
-        <button
-          v-if="message.role === 'assistant' && message.content && message.status !== 'sending'"
-          class="message-item__copy-btn"
-          @click="copyContent"
-          :title="isCopied ? 'Copied!' : 'Copy response'"
-        >
-          <span v-if="isCopied" class="copy-badge">Copied!</span>
-          <svg v-else viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
-            <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
-            <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
-          </svg>
-        </button>
+        <!-- Normal message text, rendered once through the shared Markdown
+             renderer. SECURITY: renderMarkdown escapes the whole string before
+             emitting any markup, so this v-html can only inject tags built from
+             a fixed allowlist. Never point it at input that skips renderMarkdown. -->
+        <div v-else class="message-item__text" v-html="renderedContent"></div>
       </div>
+
+      <!-- Copy button (assistant messages only — user text is the visitor's own,
+           so there is nothing to copy back). It lives below the bubble, in the
+           body flow, so it can carry a full 44x44 hit area without overlapping
+           the message text. -->
+      <button
+        v-if="message.role === 'assistant' && message.content && message.status !== 'sending'"
+        type="button"
+        class="message-item__copy-btn"
+        aria-label="Copy response"
+        :title="isCopied ? 'Copied!' : 'Copy response'"
+        @click="copyContent"
+      >
+        <span v-if="isCopied" class="copy-badge" aria-hidden="true">Copied!</span>
+        <svg v-else viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true">
+          <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+          <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+        </svg>
+        <!-- Persistent polite live region: present before the copy happens, so a
+             successful copy is announced to assistive tech, not merely shown. -->
+        <span class="sr-only" role="status" aria-live="polite">{{ isCopied ? 'Response copied to clipboard' : '' }}</span>
+      </button>
     </div>
   </div>
 </template>
@@ -247,36 +264,107 @@ function renderFormattedText(content: string): string {
 }
 
 .message-item__copy-btn {
+  align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  position: absolute;
-  bottom: 6px;
-  right: 6px;
-  padding: 3px 6px;
-  background: var(--surface-translucent);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  justify-content: center;
+  gap: var(--space-xs);
+  /* 44x44 minimum hit area (design.md accessibility) even though the glyph is
+     small — the target grows via min-size, the icon itself does not. */
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--space-xs) var(--space-sm);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-btn);
   font-size: 0.7rem;
+  /* Low emphasis but always present. It used to be opacity:0 until the bubble
+     was hovered, which put it out of reach of keyboard and touch entirely. */
   color: var(--text-medium);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.message-item__bubble:hover .message-item__copy-btn {
-  opacity: 1;
+  transition: color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
 }
 
 .message-item__copy-btn:hover {
   transform: translateY(-1px);
   color: var(--text-dark);
-  background: var(--surface-raised);
+  background: var(--surface-muted);
+}
+
+.message-item__copy-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  color: var(--text-dark);
 }
 
 .copy-badge {
   color: var(--status-success-text);
   font-weight: 600;
+}
+
+/* Screen-reader-only helper — this project has no global utility for it. Used by
+   the copy button's polite live region so a successful copy is announced. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Rendered-Markdown elements arrive via v-html (renderMarkdown), so they carry
+   no scoped-style attribute — they must be reached through :deep(). */
+.message-item__text :deep(a) {
+  /* Colour AND underline: a link is never signalled by colour alone (design.md). */
+  color: var(--select-ring);
+  text-decoration: underline;
+}
+
+.message-item__text :deep(a):hover {
+  color: var(--select-ring-hover);
+}
+
+.message-item__text :deep(.inline-code) {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85em;
+  padding: 0 var(--space-xs);
+  background: var(--surface-muted);
+  border-radius: var(--radius-badge);
+  color: var(--code-text);
+}
+
+.message-item__text :deep(.code-block) {
+  margin: var(--space-xs) 0;
+  padding: var(--space-sm);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  /* Long code lines scroll inside the bubble rather than widening the chat. */
+  overflow-x: auto;
+}
+
+.message-item__text :deep(.code-block) code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85em;
+  white-space: pre;
+}
+
+.message-item__text :deep(ul),
+.message-item__text :deep(ol) {
+  margin: var(--space-xs) 0;
+  padding-left: var(--space-lg);
+}
+
+/* The global reset in base.css zeroes every margin, so without this two paragraphs
+   from renderMarkdown would butt together and read as one block — losing the only
+   difference between a paragraph break and a hard line break. Scoped to `p + p` so
+   the single-paragraph case (almost every message) keeps its exact current spacing. */
+.message-item__text :deep(p + p) {
+  margin-top: var(--space-sm);
 }
 
 /* Typing indicator */

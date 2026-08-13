@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useInsights } from '@/composables/useInsights'
 
 const { data, isLoading, isDisabled, error, refresh } = useInsights()
@@ -22,25 +22,93 @@ const topCountries = computed(() => data.value?.topCountries ?? [])
 const topColos = computed(() => data.value?.topColos ?? [])
 
 /**
- * Bars are scaled against the largest bucket, not the total.
+ * True share of the leading bucket, 0–100, rounded to a whole percent.
  *
- * With a handful of visits the top country is most of the traffic, and scaling by
- * total would render every bar as a sliver. Relative to the leader, the shape of
- * the distribution is readable at any volume.
+ * Bars are scaled against the largest bucket, not the total: with a handful of
+ * visits the top country is most of the traffic, and scaling by total would render
+ * every bar as a sliver. Relative to the leader, the shape of the distribution is
+ * readable at any volume. This is the honest number reported to assistive tech —
+ * `share()` pads the *width* below, this does not.
+ */
+function rawShare(buckets: { count: number }[], count: number): number {
+  const top = buckets.reduce((max, bucket) => Math.max(max, bucket.count), 0)
+  if (top === 0) return 0
+  return Math.round((count / top) * 100)
+}
+
+/**
+ * Bar width as a CSS percentage, floored at 6%.
+ *
+ * The floor is a rendering concession only: a sub-6% sliver is invisible, so the
+ * smallest bars are widened just enough to stay perceivable. That padding must
+ * never leak into the accessible label — a screen reader hearing "6%" for a bar
+ * that is really 2% would be told a wrong number. The `aria-label` therefore reads
+ * `rawShare()` (unclamped), while the visual width reads this.
  */
 function share(buckets: { count: number }[], count: number): string {
-  const top = buckets.reduce((max, bucket) => Math.max(max, bucket.count), 0)
-  if (top === 0) return '0%'
-  return `${Math.max(6, Math.round((count / top) * 100))}%`
+  return `${Math.max(6, rawShare(buckets, count))}%`
 }
+
+/**
+ * Accessible description of one bar. A screen reader gets nothing from a width
+ * alone, so each row carries its key, real count, and true (unclamped) share.
+ * Indonesian to match the surrounding copy; numbers via the id-ID formatter.
+ */
+function barLabel(buckets: { key: string; count: number }[], bucket: { key: string; count: number }): string {
+  return `${bucket.key}: ${numberFormat.format(bucket.count)} kunjungan, ${rawShare(buckets, bucket.count)}% dari yang teratas`
+}
+
+// `Date.now()` is not reactive, so a computed that reads it directly freezes until
+// some unrelated dependency changes — the stamp would drift stale. This ref is the
+// computed's reactive clock: ticking it re-evaluates `computedAgo`. The copy is
+// minute-granular, so a 30s tick is plenty and 60s would still be defensible.
+const now = ref(Date.now())
+const TICK_MS = 30_000
 
 /** Honest about age: this is a cached aggregate, not a live counter. */
 const computedAgo = computed(() => {
   if (!data.value) return ''
-  const seconds = Math.max(0, Math.round((Date.now() - new Date(data.value.computedAt).getTime()) / 1000))
+  const seconds = Math.max(0, Math.round((now.value - new Date(data.value.computedAt).getTime()) / 1000))
   if (seconds < 60) return 'baru dihitung'
   const minutes = Math.round(seconds / 60)
   return `dihitung ${minutes} menit lalu`
+})
+
+let tickTimer: ReturnType<typeof setInterval> | null = null
+
+function startTicking() {
+  if (tickTimer !== null) return
+  // Resync on start so a tab returning to the foreground jumps straight to the
+  // correct age instead of showing a stale value for up to one full interval.
+  now.value = Date.now()
+  tickTimer = setInterval(() => {
+    now.value = Date.now()
+  }, TICK_MS)
+}
+
+function stopTicking() {
+  if (tickTimer !== null) {
+    clearInterval(tickTimer)
+    tickTimer = null
+  }
+}
+
+// A backgrounded tab has no reader, so pause the timer while hidden and resume (with
+// an immediate resync, via startTicking) when it comes back — no point burning a
+// timer to age a string nobody is looking at.
+function handleVisibilityChange() {
+  if (document.hidden) stopTicking()
+  else startTicking()
+}
+
+onMounted(() => {
+  if (!document.hidden) startTicking()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+onUnmounted(() => {
+  stopTicking()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 
@@ -84,15 +152,21 @@ const computedAgo = computed(() => {
           <h3 class="insights__chart-title">Negara teratas</h3>
           <p v-if="!topCountries.length" class="insights__chart-empty">Belum ada data.</p>
           <ul v-else class="insights__bars">
-            <li v-for="bucket in topCountries" :key="bucket.key" class="insights__bar-row">
-              <span class="insights__bar-key">{{ bucket.key }}</span>
-              <span class="insights__bar-track">
+            <li
+              v-for="bucket in topCountries"
+              :key="bucket.key"
+              class="insights__bar-row"
+              role="img"
+              :aria-label="barLabel(topCountries, bucket)"
+            >
+              <span class="insights__bar-key" aria-hidden="true">{{ bucket.key }}</span>
+              <span class="insights__bar-track" aria-hidden="true">
                 <span
                   class="insights__bar-fill"
                   :style="{ width: share(topCountries, bucket.count) }"
                 />
               </span>
-              <span class="insights__bar-count">{{ bucket.count }}</span>
+              <span class="insights__bar-count" aria-hidden="true">{{ bucket.count }}</span>
             </li>
           </ul>
         </div>
@@ -101,15 +175,21 @@ const computedAgo = computed(() => {
           <h3 class="insights__chart-title">Edge POP teratas</h3>
           <p v-if="!topColos.length" class="insights__chart-empty">Belum ada data.</p>
           <ul v-else class="insights__bars">
-            <li v-for="bucket in topColos" :key="bucket.key" class="insights__bar-row">
-              <span class="insights__bar-key">{{ bucket.key }}</span>
-              <span class="insights__bar-track">
+            <li
+              v-for="bucket in topColos"
+              :key="bucket.key"
+              class="insights__bar-row"
+              role="img"
+              :aria-label="barLabel(topColos, bucket)"
+            >
+              <span class="insights__bar-key" aria-hidden="true">{{ bucket.key }}</span>
+              <span class="insights__bar-track" aria-hidden="true">
                 <span
                   class="insights__bar-fill insights__bar-fill--alt"
                   :style="{ width: share(topColos, bucket.count) }"
                 />
               </span>
-              <span class="insights__bar-count">{{ bucket.count }}</span>
+              <span class="insights__bar-count" aria-hidden="true">{{ bucket.count }}</span>
             </li>
           </ul>
         </div>

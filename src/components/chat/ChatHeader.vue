@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AvengerPixelAvatar from './AvengerPixelAvatar.vue'
+import AryaPixelFace from './AryaPixelFace.vue'
 
 defineProps<{
   userAvatarId?: string
@@ -17,20 +18,7 @@ const emit = defineEmits<{
     <div class="chat-header__profile">
       <!-- Pixel Avatar -->
       <div class="pixel-avatar">
-        <svg viewBox="0 0 16 16" width="28" height="28" class="pixel-art">
-          <rect width="16" height="16" fill="#D9C8F1" rx="3" />
-          <rect x="3" y="2" width="10" height="3" fill="#2F2F2F" />
-          <rect x="2" y="4" width="2" height="4" fill="#2F2F2F" />
-          <rect x="12" y="4" width="2" height="4" fill="#2F2F2F" />
-          <rect x="4" y="5" width="8" height="6" fill="#FFE0BD" />
-          <rect x="5" y="7" width="1" height="2" fill="#2F2F2F" />
-          <rect x="10" y="7" width="1" height="2" fill="#2F2F2F" />
-          <rect x="4" y="9" width="1" height="1" fill="#F6C6D3" />
-          <rect x="11" y="9" width="1" height="1" fill="#F6C6D3" />
-          <rect x="7" y="10" width="2" height="1" fill="#D27D7D" />
-          <rect x="3" y="11" width="10" height="4" fill="#B8E0C8" />
-          <rect x="6" y="11" width="4" height="2" fill="#FAFAF7" />
-        </svg>
+        <AryaPixelFace :size="28" variant="collar" />
       </div>
 
       <div class="chat-header__info">

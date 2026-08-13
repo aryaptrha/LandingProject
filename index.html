@@ -3,7 +3,27 @@
 
 <head>
   <meta charset="UTF-8">
+
+  <!-- Favicon: virgo.png (16×16) is the primary icon; favicon.ico is the legacy
+       fallback for clients that ignore rel="icon" with a type. sizes="any" marks the
+       raster .ico as scalable so it doesn't get preferred over the typed PNG above.
+       Both files ship in public/ — neither is deleted. -->
   <link rel="icon" href="/virgo.png" type="image/png">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/virgo.png">
+  <link rel="manifest" href="/site.webmanifest">
+
+  <!-- Fonts. Moved out of base.css's render-blocking @import: an @import is only
+       discovered after that stylesheet parses and blocks rendering. Preconnect warms
+       both Google Fonts origins — the CSS host and the gstatic font-file host, which
+       needs crossorigin — then the stylesheet loads in parallel with the app bundle.
+       Families/weights/display are copied verbatim from the old @import so nothing
+       regresses: Nunito 400-700, Pixelify Sans 400-700, display=swap. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Pixelify+Sans:wght@400;500;600;700&display=swap">
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>aryaptrha Projects</title>
   <meta name="description"
@@ -40,14 +60,21 @@
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
+  <meta property="og:site_name" content="aryaptrha Projects">
+  <meta property="og:locale" content="en_US">
   <meta property="og:url" content="https://aryaptrha.fun/">
   <meta property="og:title" content="aryaptrha Projects | Cozy Portfolio & Indie Games">
   <meta property="og:description"
     content="A cozy collection of web applications, game development prototypes, fullstack projects, and backend services built by aryaptrha.">
   <meta property="og:image" content="https://aryaptrha.fun/virgo.png">
+  <meta property="og:image:alt" content="aryaptrha Projects site icon">
+  <!-- Real on-disk size of public/virgo.png (16×16). Declared so crawlers don't have
+       to fetch the file to learn it; kept accurate rather than guessed at a card size. -->
+  <meta property="og:image:width" content="16">
+  <meta property="og:image:height" content="16">
 
   <!-- Twitter -->
-  <meta property="twitter:card" content="summary">
+  <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="https://aryaptrha.fun/">
   <meta property="twitter:title" content="aryaptrha Projects | Cozy Portfolio & Indie Games">
   <meta property="twitter:description"
@@ -59,6 +86,39 @@
 
   <!-- Google Site Verification (If using HTML tag verification, uncomment and replace code below) -->
   <!-- <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE_HERE" /> -->
+
+  <!-- Structured data. Every value here is already asserted elsewhere in the repo — the
+       title/name, the meta description, the author, the canonical URL and the page's
+       lang="en". The two sameAs entries are the only project links in src/App.vue that
+       carry the aryaptrha handle (github.io/yaya, itch.io); the generic vercel/azure
+       deployment URLs are omitted because they don't establish the person's identity.
+       Nothing is invented: no employer, no job title, no fabricated profiles. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://aryaptrha.fun/#website",
+        "url": "https://aryaptrha.fun/",
+        "name": "aryaptrha Projects",
+        "description": "A cozy collection of web applications, game development prototypes, fullstack projects, and backend services built by aryaptrha.",
+        "inLanguage": "en",
+        "author": { "@id": "https://aryaptrha.fun/#person" }
+      },
+      {
+        "@type": "Person",
+        "@id": "https://aryaptrha.fun/#person",
+        "name": "aryaptrha",
+        "url": "https://aryaptrha.fun/",
+        "sameAs": [
+          "https://aryaptrha.github.io/yaya/",
+          "https://aryaptrha.itch.io/upi-cibiru-prototype"
+        ]
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body>

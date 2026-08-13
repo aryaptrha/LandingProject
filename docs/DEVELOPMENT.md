@@ -116,11 +116,14 @@ all.
 ## Project structure
 
 ```
-index.html                Meta tags, OG/Twitter cards, pre-paint theme script
+index.html                Meta tags, OG/Twitter cards, JSON-LD, font <link>s,
+                          pre-paint theme script
 vite.config.ts            Vue plugin, @ alias, /api → :8788 proxy
 wrangler.toml             Worker name, assets binding, dev port, secret docs
 design.md                 Design-system reference
 docs/                     This directory
+public/                   Copied to dist/ verbatim — site.webmanifest, icons,
+                          robots.txt, sitemap.xml, music/
 
 src/
   App.vue                 Landing grid, floating widgets
@@ -135,24 +138,29 @@ src/
                                   RTT, second hop gated on cf-cache-status
     chat/                 ChatContainer, ChatHeader, ChatMessageList,
                           ChatMessageItem, ChatInput, ChatPromptChips,
-                          ChatAvatarPicker, ChatSettingsModal,
-                          AvengerPixelAvatar, DoctorStrangePortalEffect,
+                          ChatAvatarPicker, AvengerPixelAvatar,
+                          AryaPixelFace (the one source for Arya's face —
+                          header, empty state and every reply share it),
+                          DoctorStrangePortalEffect,
                           avengerAvatars.ts (avatar catalogue)
     icons/                Pixel-art SVGs
   composables/
     useChat.ts            Send, stream, persist, retry, timeouts
     useTheme.ts           Day/night toggle, localStorage, theme-color meta
-    useEdgeStatus.ts      Polls /api/edge-status
-    useLatency.ts         Polls /api/latency, computes RTT
-    useVisitor.ts         Polls /api/visitor — currently unused by any component
+    useEdgeStatus.ts      Polls /api/edge-status (shared singleton, 30s)
+    useLatency.ts         Polls /api/latency, computes RTT (shared singleton, 20s)
+    useVisitLogger.ts     One-shot /api/visitor ping, called from App.vue on mount
   utils/
     sse.ts                SSE line reader, framework-free
     motion.ts             prefers-reduced-motion for JS-driven animation
+    latency.ts            Latency thresholds, status buckets, status colours
+    markdown.ts           Escape-first Markdown subset for chat messages
   worker/
     index.ts              /api/* → Hono; otherwise env.ASSETS.fetch()
     router.ts             Mounts route modules under /api + an /api/* 404
     routes/               chat.ts, edge.ts (serves /api/edge-status),
-                          latency.ts, visitor.ts, cache.ts
+                          latency.ts, visitor.ts, config.ts,
+                          guestbook.ts, insights.ts
     services/             edge.service.ts — request.cf extraction
     types/env.ts          Env bindings (ASSETS, PERSONA_*), AppEnv
     types/cloudflare.ts   request.cf property shapes
@@ -235,8 +243,9 @@ Check `node -v` against 22.
 
 ## Notes on current state
 
-- `/api/visitor` and `/api/cache` are implemented and reachable, but no
-  component calls them — `useVisitor` has no consumer. Not dead code exactly;
-  just not wired up.
+- `/api/visitor` is called once per page load by `useVisitLogger`, from `App.vue`'s
+  `onMounted`. It was unreachable before that — the old polling `useVisitor` was never
+  imported, so nothing was ever logged and EdgeInsights read zero. The worker dedupes
+  per session in KV for ~30 minutes, which is why one ping on load beats polling.
 - `.wrangler/` is local miniflare state (a SQLite cache plus per-run build
   bundles). Ignored, and safe to delete at any time.

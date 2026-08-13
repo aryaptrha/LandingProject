@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent, ref } from 'vue'
 import { useEdgeDock } from '../../composables/useEdgeDock'
+import { useMobilePanel } from '../../composables/useMobilePanels'
 import { useMusicPlayer } from '../../composables/useMusicPlayer'
 import IconMusicNote from './icons/IconMusicNote.vue'
 
@@ -18,6 +19,33 @@ const MusicPlayerDrawer = defineAsyncComponent(() => import('./MusicPlayerDrawer
 
 const { isPlaying } = useMusicPlayer()
 const isOpen = ref(false)
+
+/*
+ * The tab is always mounted, so it is where focus lands when the drawer is force-closed
+ * from under a keyboard visitor — see the closer below.
+ */
+const tabEl = ref<HTMLButtonElement | null>(null)
+
+/*
+ * On a phone the chat popup, the edge-status band and this music drawer are all fixed
+ * near z-index 1001, so only one may be open at a time. When another panel claims the
+ * space, this drawer gives way — and loses nothing by it: playback lives in
+ * `useMusicPlayer`, so it keeps running with the drawer closed, which is exactly what
+ * the tab's playing dot goes on reporting.
+ *
+ * Focus is the one thing a force-close would drop. The drawer is unmounted, so focus on
+ * anything inside it — the close button, a track, a transport control — would fall to
+ * `<body>` and strand the visitor at the top of the page. The tab is this drawer's own
+ * toggle, so that is where focus belongs. The check keeps the hand-off to the case that
+ * needs it: a tap that already moved focus elsewhere (or never took it — iOS Safari
+ * doesn't focus buttons on tap) is left alone, so nothing gains a ring it didn't have.
+ */
+const { claim } = useMobilePanel('music', () => {
+  const losingFocus =
+    document.getElementById('music-drawer')?.contains(document.activeElement) === true
+  isOpen.value = false
+  if (losingFocus) tabEl.value?.focus()
+})
 
 /*
  * The tab and the drawer move as one piece, so the two of them live in a dock that
@@ -49,6 +77,11 @@ function onTabClick() {
   // A finished drag ends with a click on the tab; that one must not also toggle.
   if (shouldIgnoreClick()) return
   isOpen.value = !isOpen.value
+  // Only on the way open — on a phone this takes the screen back from chat/edge. Closing
+  // takes space from nobody. Note `claim()` closes the peers whichever edge the dock is
+  // parked on: a left-docked drawer still shuts the bottom bands, since all three overlap
+  // on a phone regardless of side.
+  if (isOpen.value) claim()
 }
 
 let prefetched = false
@@ -85,6 +118,7 @@ function prefetchDrawer() {
       its own regardless.
     -->
     <button
+      ref="tabEl"
       type="button"
       class="music-tab"
       :class="{ 'music-tab--open': isOpen }"

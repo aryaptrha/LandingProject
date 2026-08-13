@@ -1,21 +1,74 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useTheme } from '../composables/useTheme'
 
-const { isNight, toggleTheme } = useTheme()
+// This control is tri-state — day, night, and "follow system" — not a boolean
+// toggle. `useTheme` already models the third state: an explicit day/night pick
+// sets `hasExplicitChoice`, and dropping it (via `useSystemTheme`) goes back to
+// tracking the OS `prefers-color-scheme`. Before this, that reset was unreachable
+// from the UI, so once a visitor picked a side there was no way back to system.
+const { theme, hasExplicitChoice, setTheme, useSystemTheme } = useTheme()
+
+type ThemeMode = 'day' | 'night' | 'system'
+
+// "system" is the *absence* of an explicit choice, so it can't live in `theme`
+// (which only ever holds the resolved day/night palette). It's derived from
+// whether the visitor has overridden the OS preference.
+const mode = computed<ThemeMode>(() => {
+  if (!hasExplicitChoice.value) return 'system'
+  return theme.value === 'night' ? 'night' : 'day'
+})
+
+// One button cycling day -> night -> system -> day keeps this a single 44x44
+// control in the corner, rather than growing a second floating button or a menu
+// for a cozy portfolio's lone theme switch.
+function cycleMode() {
+  if (mode.value === 'day') setTheme('night')
+  else if (mode.value === 'night') useSystemTheme()
+  else setTheme('day')
+}
+
+// The accessible name leads with the *current* mode (what a screen reader hears
+// when the control is merely focused) and follows with the action (heard as
+// "…, button"). This replaces `aria-pressed`, which is boolean and cannot
+// express three states.
+const label = computed(() => {
+  switch (mode.value) {
+    case 'day':
+      return 'Day mode. Switch to night mode.'
+    case 'night':
+      return 'Night mode. Switch to following the system theme.'
+    default:
+      return 'Following the system theme. Switch to day mode.'
+  }
+})
+
+// Short current-state string for the pointer tooltip and the live region.
+const stateText = computed(() => {
+  switch (mode.value) {
+    case 'day':
+      return 'Day mode'
+    case 'night':
+      return 'Night mode'
+    default:
+      return 'Following the system theme'
+  }
+})
 </script>
 
 <template>
   <button
     class="theme-toggle"
     type="button"
-    :aria-pressed="isNight"
-    :aria-label="isNight ? 'Switch to day mode' : 'Switch to night mode'"
-    :title="isNight ? 'Day mode' : 'Night mode'"
-    @click="toggleTheme"
+    :aria-label="label"
+    :title="stateText"
+    @click="cycleMode"
   >
-    <!-- Hand-authored pixel art on a 16 grid, one scale, no anti-aliasing. -->
+    <!-- Hand-authored pixel art on a 16 grid, one scale, no anti-aliasing.
+         Each state is a distinct silhouette (radial disc / lopsided crescent /
+         rectangular screen) so the mode never rests on colour alone. -->
     <svg
-      v-if="!isNight"
+      v-if="mode === 'day'"
       class="theme-toggle__icon pixel-art"
       viewBox="0 0 16 16"
       width="24"
@@ -40,7 +93,7 @@ const { isNight, toggleTheme } = useTheme()
     </svg>
 
     <svg
-      v-else
+      v-else-if="mode === 'night'"
       class="theme-toggle__icon pixel-art"
       viewBox="0 0 16 16"
       width="24"
@@ -60,6 +113,35 @@ const { isNight, toggleTheme } = useTheme()
       <rect x="11" y="4" width="1" height="1" fill="currentColor" />
       <rect x="13" y="8" width="1" height="1" fill="currentColor" />
     </svg>
+
+    <svg
+      v-else
+      class="theme-toggle__icon pixel-art"
+      viewBox="0 0 16 16"
+      width="24"
+      height="24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <!-- "Follow system" reads as a pixel monitor: the theme tracks whatever the
+           device asks for. A desktop PC is one of design.md's preferred subjects,
+           and its hollow-screen-plus-stand silhouette is unmistakably neither the
+           sun's radial disc nor the moon's crescent. Drawn on the same 16 grid. -->
+      <!-- Bezel: a one-unit frame, drawn as four edges so the screen stays hollow -->
+      <rect x="2" y="2" width="12" height="1" fill="currentColor" />
+      <rect x="2" y="9" width="12" height="1" fill="currentColor" />
+      <rect x="2" y="3" width="1" height="6" fill="currentColor" />
+      <rect x="13" y="3" width="1" height="6" fill="currentColor" />
+      <!-- Stand: neck then a wider foot, both centred under the screen -->
+      <rect x="7" y="10" width="2" height="1" fill="currentColor" />
+      <rect x="5" y="11" width="6" height="1" fill="currentColor" />
+    </svg>
+
+    <!-- Announced when the mode changes while focus stays on the button — a lone
+         changed aria-label is not reliably re-read by screen readers, and there is
+         no longer an aria-pressed flip to carry the update. Silent on first render
+         (a live region only speaks on subsequent changes). -->
+    <span class="theme-toggle__status" role="status">{{ stateText }}</span>
   </button>
 </template>
 
@@ -67,8 +149,8 @@ const { isNight, toggleTheme } = useTheme()
 /* Solid fill, not glass — glass is reserved for surfaces, per design.md. */
 .theme-toggle {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  top: var(--space-md);
+  right: var(--space-md);
   z-index: 1001;
   display: flex;
   align-items: center;
@@ -112,10 +194,23 @@ const { isNight, toggleTheme } = useTheme()
   shape-rendering: crispEdges;
 }
 
+/* Visually hidden but exposed to assistive tech (no repo-wide utility exists). */
+.theme-toggle__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media (max-width: 480px) {
   .theme-toggle {
-    top: 10px;
-    right: 10px;
+    top: var(--space-sm);
+    right: var(--space-sm);
   }
 }
 </style>

@@ -2,16 +2,21 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useEdgeStatus } from '@/composables/useEdgeStatus'
 import { useLatency } from '@/composables/useLatency'
+import { latencyStatusColor } from '@/utils/latency'
 import { prefersReducedMotion } from '@/utils/motion'
 
 /* The diagram reads its geography, protocol and cache verdict off the same
    `/api/edge-status` payload the status widget uses — that response is built from
    `request.cf`, so it already carries the visitor's city and country. `useVisitor`
    would return the same fields from a second poller, so it is deliberately not
-   used here. Latency comes from `useLatency`, on a slower interval than the
-   corner indicator: this one only needs a travel speed, not a live readout. */
-const { data } = useEdgeStatus(30000)
-const { latency, error: latencyError } = useLatency(30000, 5000)
+   used here. Latency comes from the shared `useLatency` poll. This diagram once
+   ran latency on its own slower 30s cadence "for a travel speed, not a live
+   readout", but that poll is now a singleton owning a single 20s interval shared
+   with the corner indicator. The trade-off is fine here: packet speed is derived
+   per reading (see `hopDuration`), so a faster cadence only means the travel
+   speed re-syncs to live conditions a little sooner. */
+const { data } = useEdgeStatus()
+const { latency, error: latencyError } = useLatency()
 
 /** One leg of the request. `idle` is the gap between cycles. */
 type Phase =
@@ -119,20 +124,13 @@ const cacheVerdict = computed(() => {
 })
 
 /** Same status→colour mapping the latency indicator uses, so a green packet in
-    the diagram means the same thing as a green dot in the corner widget. */
-const latencyColor = computed(() => {
-  if (!latency.value) return 'var(--text-medium)'
-  switch (latency.value.status) {
-    case 'excellent':
-      return 'var(--green-main)'
-    case 'good':
-      return 'var(--blue-main)'
-    case 'average':
-      return 'var(--yellow-main)'
-    case 'slow':
-      return 'var(--pink-main)'
-  }
-})
+    the diagram means the same thing as a green dot in the corner widget. The
+    status→colour map itself now lives in `utils/latency` (shared with the corner
+    indicator and the status widget); the "no reading yet" fallback stays here
+    because it is about the absence of a measurement, not about a status band. */
+const latencyColor = computed(() =>
+  latency.value ? latencyStatusColor(latency.value.status) : 'var(--text-medium)',
+)
 
 /**
  * Travel time for one hop, scaled from the measured round trip.

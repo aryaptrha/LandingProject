@@ -5,6 +5,14 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  /**
+   * ISO 8601 instant (`new Date().toISOString()`), NOT a display string. A
+   * locale time like "14:32" frozen at creation is wrong the moment it is
+   * re-read across a timezone or on another day; the renderer formats it on
+   * demand. Migration note for consumers: messages persisted by older builds
+   * hold a pre-formatted locale string, so a renderer must fall back to showing
+   * the value verbatim when `Date` parsing fails.
+   */
   timestamp: string
   status?: 'sending' | 'error' | 'sent'
   isSlow?: boolean
@@ -38,12 +46,24 @@ function getActiveEndpoint(): string {
 
 const DEFAULT_ENDPOINT = '/api/chat'
 
+/**
+ * Monotonic counter for message ids. `Date.now()` alone collides when two sends
+ * land inside the same millisecond (the role prefixes only stop a user/assistant
+ * pair within one send from colliding). Appending an ever-increasing counter
+ * makes every id unique for the module's lifetime.
+ */
+let idCounter = 0
+function nextMessageId(prefix: string): string {
+  idCounter += 1
+  return `${prefix}-${Date.now()}-${idCounter}`
+}
+
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: 'welcome-1',
     role: 'assistant',
     content: 'Halo! Aku Arya 👋. Senang bisa ngobrol! tanyain apaan aja kak bebas ini mah, tentang saya boleh, tanya pacar saya siapa boleh, tanya kapan kiamat jangan, curhat bolehhh.',
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    timestamp: new Date().toISOString(),
     status: 'sent',
   },
 ]
@@ -63,6 +83,13 @@ export function useChat() {
   const messages = ref<ChatMessage[]>([])
   const isLoading = ref<boolean>(false)
   const error = ref<string | null>(null)
+
+  // The in-flight request's controller, lifted out of `sendMessage` so `stop()`
+  // can reach it. `stoppedByUser` records that an abort was a deliberate Stop
+  // rather than a timeout — both arrive as a DOMException AbortError, so the
+  // catch can't tell them apart without this flag. Both reset per send.
+  let activeController: AbortController | null = null
+  let stoppedByUser = false
 
   // Initialize messages from localStorage or defaults
   onMounted(() => {
@@ -121,11 +148,19 @@ export function useChat() {
     }
   }
 
+  // localStorage is a fixed ~5MB budget shared with every other key. An
+  // unbounded chat history eventually overflows it, and the catch below would
+  // then swallow every write forever, silently losing new messages. Cap what we
+  // persist to the most recent 100. The in-memory `messages` ref keeps the full
+  // session history untouched — only the on-disk copy is trimmed.
+  const PERSIST_LIMIT = 100
   watch(
     messages,
     (newVal) => {
       try {
-        localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(newVal))
+        const toPersist =
+          newVal.length > PERSIST_LIMIT ? newVal.slice(-PERSIST_LIMIT) : newVal
+        localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(toPersist))
       } catch {
         // Storage limit protection
       }
@@ -133,21 +168,26 @@ export function useChat() {
     { deep: true }
   )
 
-  function setEndpoint(url: string) {
-    endpointUrl.value = url.trim() || DEFAULT_ENDPOINT
-  }
-
-  function setApiKey(key: string) {
-    apiKey.value = key.trim()
+  /**
+   * Cancel the in-flight reply. A no-op when nothing is streaming. Setting
+   * `stoppedByUser` first lets the `catch` in `sendMessage` label this abort as
+   * a deliberate stop rather than a timeout; whatever streamed in so far is
+   * preserved exactly as it is for a timeout abort.
+   */
+  function stop() {
+    if (activeController) {
+      stoppedByUser = true
+      activeController.abort()
+    }
   }
 
   function clearMessages() {
     messages.value = [
       {
-        id: `welcome-${Date.now()}`,
+        id: nextMessageId('welcome'),
         role: 'assistant',
         content: 'Pesan telah dibersihkan! Ada yang mau kamu tanyakan lagi ke aku?',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date().toISOString(),
         status: 'sent',
       },
     ]
@@ -160,12 +200,12 @@ export function useChat() {
     error.value = null
 
     // 1. Create user message
-    const userMsgId = `user-${Date.now()}`
+    const userMsgId = nextMessageId('user')
     const userMsg: ChatMessage = {
       id: userMsgId,
       role: 'user',
       content: trimmed,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toISOString(),
       status: 'sent',
     }
 
@@ -185,19 +225,23 @@ export function useChat() {
     isLoading.value = true
 
     // Placeholder assistant message for loading state
-    const assistantMsgId = `assistant-${Date.now()}`
+    const assistantMsgId = nextMessageId('assistant')
     const assistantMsg: ChatMessage = {
       id: assistantMsgId,
       role: 'assistant',
       content: '',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toISOString(),
       status: 'sending',
       isSlow: false,
     }
 
     messages.value.push(assistantMsg)
 
+    // Fresh controller per send. Reset the deliberate-stop flag first so a Stop
+    // from a previous request can't leak into this one's abort classification.
+    stoppedByUser = false
     const controller = new AbortController()
+    activeController = controller
 
     // Apologetic notice if nothing has come back yet. For a stream this is cleared
     // on the *first token*, not on completion — once text is moving, we're not stuck.
@@ -309,8 +353,13 @@ export function useChat() {
       }
     } catch (err) {
       const aborted = err instanceof DOMException && err.name === 'AbortError'
+      // A user Stop and a timeout both surface as AbortError; `stoppedByUser` is
+      // the only signal that separates "you cancelled this" from "it hung".
+      // Without it a deliberate Stop would falsely read as "Waktu tunggu habis".
       const errMsg = aborted
-        ? 'Waktu tunggu habis'
+        ? stoppedByUser
+          ? 'Dihentikan'
+          : 'Waktu tunggu habis'
         : err instanceof Error
           ? err.message
           : 'Gagal terhubung ke endpoint chat'
@@ -321,13 +370,16 @@ export function useChat() {
         // Keep whatever streamed in before the break instead of throwing it away.
         targetMsg.content = targetMsg.content
           ? `${targetMsg.content}\n\n⚠️ (Terputus: ${errMsg})`
-          : `⚠️ Maaf, gagal terhubung ke server (${errMsg}). Silakan periksa koneksi atau URL endpoint di Settings.`
+          : `⚠️ Maaf, gagal terhubung ke server (${errMsg}). Coba cek koneksi kamu dulu ya, terus kirim lagi.`
         targetMsg.status = 'error'
       }
     } finally {
       clearSlowTimer()
       clearHardTimer()
       clearIdleTimer()
+      // Nothing is in flight once we reach here, so a later `stop()` must not
+      // find a stale controller and abort an unrelated future request.
+      activeController = null
       isLoading.value = false
     }
   }
@@ -377,12 +429,10 @@ export function useChat() {
     isLoading,
     error,
     sendMessage,
+    stop,
     clearMessages,
-    setEndpoint,
-    setApiKey,
     setUserAvatar,
     openAvatarPicker,
     closeAvatarPicker,
-    DEFAULT_ENDPOINT,
   }
 }

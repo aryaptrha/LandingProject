@@ -3,9 +3,13 @@ import { ref, computed, nextTick } from 'vue'
 import { useEdgeStatus } from '@/composables/useEdgeStatus'
 import { useLatency } from '@/composables/useLatency'
 import { useMobilePanel } from '@/composables/useMobilePanels'
+import { latencyStatusColor as statusColor, latencyStatusLabel as statusLabel } from '@/utils/latency'
 
-const { data, isLoading, error, refresh } = useEdgeStatus(30000)
-const { latency, isLoading: latencyLoading, error: latencyError, measure } = useLatency(20000, 5000)
+// Both composables are shared singletons now: they own their own poll cadence and
+// request timeout, so the per-call interval/timeout arguments are gone. Mounting
+// each here only subscribes to the shared loop — it starts no request of its own.
+const { data, isLoading, error, refresh } = useEdgeStatus()
+const { latency, isLoading: latencyLoading, error: latencyError, measure } = useLatency()
 
 const STORAGE_KEY = 'portfolio_edge_collapsed'
 
@@ -105,6 +109,11 @@ const rows = computed(() => {
   return [
     { label: 'Status', value: data.value.status },
     { label: 'Edge POP', value: data.value.colo },
+    // Continent was fetched on every poll but never shown. Slotted into the geo
+    // block (broad→narrow: Continent, Country, City) without moving the existing
+    // rows. No local fallback needed: the worker substitutes the literal
+    // 'unknown' for absent geo, exactly as Country/City already rely on.
+    { label: 'Continent', value: data.value.continent },
     { label: 'Country', value: data.value.country },
     { label: 'City', value: data.value.city },
     { label: 'Timezone', value: data.value.timezone },
@@ -117,24 +126,18 @@ const rows = computed(() => {
   ]
 })
 
-const latencyStatusColor = computed(() => {
-  if (!latency.value) return 'var(--text-medium)'
-  switch (latency.value.status) {
-    case 'excellent':
-      return 'var(--green-main)'
-    case 'good':
-      return 'var(--blue-main)'
-    case 'average':
-      return 'var(--yellow-main)'
-    case 'slow':
-      return 'var(--pink-main)'
-  }
-})
+// Colour and label both come from the shared @/utils/latency helpers now, so a
+// given round-trip band renders identically here and in the corner indicator,
+// and the 30/80/150 boundaries can never drift between the two. The "no reading
+// yet" fallbacks stay local: they describe the absence of a reading, not a
+// status, so they have no place in the status→colour/label maps.
+const latencyStatusColor = computed(() =>
+  latency.value ? statusColor(latency.value.status) : 'var(--text-medium)',
+)
 
-const latencyStatusLabel = computed(() => {
-  if (!latency.value) return '—'
-  return latency.value.status.charAt(0).toUpperCase() + latency.value.status.slice(1)
-})
+const latencyStatusLabel = computed(() =>
+  latency.value ? statusLabel(latency.value.status) : '—',
+)
 </script>
 
 <template>
@@ -193,8 +196,22 @@ const latencyStatusLabel = computed(() => {
 
     <!-- Error state -->
     <div v-if="error" class="edge-widget__error">
-      <p class="edge-widget__error-text">Cloudflare Offline</p>
-      <button class="edge-widget__retry" @click="refresh">
+      <!-- Surface the composable's actual error (a timeout, an HTTP status, a
+           message) instead of a fixed "Cloudflare Offline": the panel was
+           discarding the one string that says what actually went wrong. -->
+      <p class="edge-widget__error-text">{{ error }}</p>
+      <!-- Give the retry the accessible name and disabled-while-loading guard
+           that Refresh already has — its ⟳ is decorative, so the button carried
+           no stable name of its own. No "..." loading-text swap here, unlike
+           Refresh: refresh() clears `error` synchronously, so this region
+           unmounts as the fetch starts and a loading label would never render;
+           the disabled guard only closes the re-entrant-click window. -->
+      <button
+        class="edge-widget__retry"
+        :disabled="isLoading"
+        aria-label="Retry loading edge status"
+        @click="refresh"
+      >
         Retry ⟳
       </button>
     </div>
@@ -219,9 +236,13 @@ const latencyStatusLabel = computed(() => {
         <span class="edge-widget__value">{{ row.value }}</span>
       </div>
 
+      <!-- Explicit name so the accessible label stays "Refresh edge status"
+           rather than collapsing to the "..." (and its ⟳ being read out) while
+           loading. Contains the visible word "Refresh" per WCAG label-in-name. -->
       <button
         class="edge-widget__refresh"
         :disabled="isLoading"
+        aria-label="Refresh edge status"
         @click="refresh"
       >
         {{ isLoading ? '...' : 'Refresh ⟳' }}

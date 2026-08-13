@@ -1,0 +1,15 @@
+{
+  "name": "aryaptrha Projects",
+  "short_name": "aryaptrha",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8F6F2",
+  "theme_color": "#FAFAF7",
+  "icons": [
+    {
+      "src": "/virgo.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    }
+  ]
+}

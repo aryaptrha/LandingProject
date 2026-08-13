@@ -1,4 +1,4 @@
-import type { EdgeStatusData, LatencyData, VisitorData, CacheData } from '../types/cloudflare'
+import type { EdgeStatusData, LatencyData, VisitorData } from '../types/cloudflare'
 
 /**
  * Extracts the cf properties from a request safely.
@@ -57,17 +57,6 @@ export function getVisitor(request: Request): VisitorData {
     timezone: ('timezone' in cf ? (cf.timezone as string) : undefined) ?? 'unknown',
     language,
     colo: ('colo' in cf ? (cf.colo as string) : undefined) ?? 'unknown',
-  }
-}
-
-/**
- * Builds cache status information from headers.
- */
-export function getCache(request: Request): CacheData {
-  return {
-    cacheStatus: request.headers.get('cf-cache-status') ?? 'NONE',
-    cacheControl: request.headers.get('cache-control') ?? 'none',
-    etag: request.headers.get('etag') ?? 'none',
   }
 }
 

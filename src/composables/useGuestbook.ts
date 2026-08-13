@@ -23,7 +23,6 @@ export interface GuestbookEntryData {
 
 export interface GuestbookStatsData {
   total: number
-  topCountries: { key: string; count: number }[]
   cached: boolean
 }
 

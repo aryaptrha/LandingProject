@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useChat } from '../../composables/useChat'
 import { useMobilePanel } from '../../composables/useMobilePanels'
+import AryaPixelFace from './AryaPixelFace.vue'
 import ChatHeader from './ChatHeader.vue'
 import ChatMessageList from './ChatMessageList.vue'
 import ChatInput from './ChatInput.vue'
@@ -12,11 +13,13 @@ const {
   messages,
   isLoading,
   sendMessage,
+  stop,
   clearMessages,
   userAvatarId,
   isAvatarPickerOpen,
   setUserAvatar,
   openAvatarPicker,
+  closeAvatarPicker,
 } = useChat()
 
 const isOpen = ref(false)
@@ -45,11 +48,85 @@ const { claim } = useMobilePanel('chat', () => {
 /** Only shown on a fresh conversation — the welcome message alone, nothing asked yet. */
 const showPromptChips = computed(() => messages.value.length <= 1)
 
+/*
+ * The avatar picker overlays the popup on a fresh conversation (no avatar chosen yet) or
+ * whenever the visitor reopens it to switch heroes. This mirrors the template's own
+ * render condition for the picker, kept in one place so the Escape handler and the
+ * focus-on-open below can both defer to the picker for exactly as long as it is on screen.
+ */
+const isPickerShown = computed(() => isAvatarPickerOpen.value || !userAvatarId.value)
+
 function toggleChat() {
   isOpen.value = !isOpen.value
   // Only on the way open. Closing takes space from nobody.
   if (isOpen.value) claim()
 }
+
+/*
+ * Dialog accessibility, following the music shell as the in-repo reference
+ * (MusicPlayerWidget for the launcher's aria state, MusicPlayerDrawer for the
+ * mount-scoped Escape listener): the launcher advertises open/closed, focus moves into
+ * the popup on open and back to the launcher on close, Tab is trapped inside the open
+ * dialog, and Escape closes it. Unlike the music drawer — a component that mounts and
+ * unmounts with its own open state — this popup is a `v-if` block in this same file, so
+ * the keydown listener is bound and torn down by watching `isOpen` rather than by a
+ * child's lifecycle hooks. Either way the listener lives only while the popup is open.
+ */
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+function getFocusable(): HTMLElement[] {
+  const root = popupEl.value
+  if (!root) return []
+  // The sentinels carry tabindex="0" themselves; they exist to catch a wrap, not to be
+  // wrap targets, so they are filtered back out of the real tab order here.
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) => !el.classList.contains('focus-sentinel'),
+  )
+}
+
+function focusFirst() {
+  getFocusable()[0]?.focus()
+}
+
+function focusLast() {
+  const focusables = getFocusable()
+  focusables[focusables.length - 1]?.focus()
+}
+
+function onPopupKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return
+  // The avatar picker owns Escape while it is on screen (it dismisses itself via
+  // @dismiss). One Escape press must never both dismiss the picker and close the chat,
+  // so the shell stands down for the whole time the picker is shown — not only when it
+  // was opened deliberately, but on the mandatory first-visit pass too.
+  if (isPickerShown.value) return
+  isOpen.value = false
+}
+
+watch(isOpen, async (open) => {
+  if (open) {
+    document.addEventListener('keydown', onPopupKeydown)
+    await nextTick()
+    // The picker manages its own focus-on-open (it mounts inside the popup), so the shell
+    // only reaches for focus when the main chat is what came up — otherwise the two would
+    // both grab the first focus and race.
+    if (!isPickerShown.value) {
+      const first = getFocusable()[0]
+      if (first) first.focus()
+      else popupEl.value?.focus()
+    }
+  } else {
+    document.removeEventListener('keydown', onPopupKeydown)
+    // Return focus to the launcher, but only when it still sits inside the closing popup
+    // — the same guard the mobile force-close above applies, so a close that already
+    // moved focus elsewhere (or that closer, which restores focus itself) is left alone
+    // and nothing gains a ring it didn't have.
+    if (popupEl.value?.contains(document.activeElement) === true) launcherEl.value?.focus()
+  }
+})
+
+onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
 </script>
 
 <template>
@@ -63,21 +140,11 @@ function toggleChat() {
       type="button"
       aria-label="Toggle Chat with Arya"
       :title="isOpen ? 'Close Chat' : 'Chat dengan Arya'"
+      :aria-expanded="isOpen"
+      :aria-controls="isOpen ? 'chat-popup' : undefined"
     >
       <div class="chat-launcher__avatar">
-        <svg viewBox="0 0 16 16" width="22" height="22" class="pixel-art">
-          <rect width="16" height="16" fill="#D9C8F1" rx="3" />
-          <rect x="3" y="2" width="10" height="3" fill="#2F2F2F" />
-          <rect x="2" y="4" width="2" height="4" fill="#2F2F2F" />
-          <rect x="12" y="4" width="2" height="4" fill="#2F2F2F" />
-          <rect x="4" y="5" width="8" height="6" fill="#FFE0BD" />
-          <rect x="5" y="7" width="1" height="2" fill="#2F2F2F" />
-          <rect x="10" y="7" width="1" height="2" fill="#2F2F2F" />
-          <rect x="4" y="9" width="1" height="1" fill="#F6C6D3" />
-          <rect x="11" y="9" width="1" height="1" fill="#F6C6D3" />
-          <rect x="7" y="10" width="2" height="1" fill="#D27D7D" />
-          <rect x="3" y="11" width="10" height="4" fill="#B8E0C8" />
-        </svg>
+        <AryaPixelFace :size="22" />
       </div>
       <span class="chat-launcher__label">Chat Arya</span>
       <span class="chat-launcher__dot"></span>
@@ -87,11 +154,18 @@ function toggleChat() {
     <Transition name="chat-popup-anim">
       <section
         v-if="isOpen"
+        id="chat-popup"
         ref="popupEl"
         class="chat-popup"
         role="dialog"
         aria-label="Chat Window with Arya"
+        tabindex="-1"
       >
+        <!-- Focus-trap sentinel: a Shift+Tab off the first control lands here and is
+             bounced to the last, keeping Tab inside the open dialog. Paired with the one
+             just before the closing tag. -->
+        <span class="focus-sentinel" tabindex="0" @focus="focusLast"></span>
+
         <!-- Header -->
         <ChatHeader
           :user-avatar-id="userAvatarId"
@@ -102,9 +176,10 @@ function toggleChat() {
 
         <!-- Avatar Picker Overlay (shows when first starting chat or when user wants to change avatar) -->
         <ChatAvatarPicker
-          v-if="isAvatarPickerOpen || !userAvatarId"
+          v-if="isPickerShown"
           :initial-avatar-id="userAvatarId || 'ironman'"
           @select="setUserAvatar"
+          @dismiss="closeAvatarPicker"
         />
 
         <!-- Main Chat Area (shown after avatar selection) -->
@@ -127,8 +202,13 @@ function toggleChat() {
           <ChatInput
             :is-loading="isLoading"
             @send="sendMessage"
+            @stop="stop"
           />
         </template>
+
+        <!-- Focus-trap sentinel: a Tab off the last control lands here and is bounced
+             back to the first. -->
+        <span class="focus-sentinel" tabindex="0" @focus="focusFirst"></span>
       </section>
     </Transition>
   </div>
@@ -180,9 +260,13 @@ function toggleChat() {
   overflow: hidden;
 }
 
-.pixel-art {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+/* Focus-trap sentinels: empty and out of flow, so they never affect the popup's flex
+   layout, and they only ever hold focus for the instant their @focus handler takes to
+   bounce it to the opposite end of the dialog — so no focus ring is ever painted. */
+.focus-sentinel {
+  position: absolute;
+  width: 0;
+  height: 0;
 }
 
 .chat-launcher__label {

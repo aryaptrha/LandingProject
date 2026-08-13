@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { vAutoAnimate } from '@formkit/auto-animate/vue'
+import { recordVisit } from './composables/useVisitLogger'
 import MenuCard from './components/MenuCard.vue'
 import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
 import EdgeGuestbook from './components/EdgeGuestbook.vue'
@@ -75,6 +77,15 @@ const menuItems = [
  * would fade in over 112ms, which is under it.
  */
 const railMotion = { duration: 200, easing: 'ease-out' }
+
+/*
+ * The visit ping lives here, and only here, because App.vue is the one component
+ * guaranteed to mount exactly once per page load — every widget below is conditional or
+ * remountable, App is not. `recordVisit` is fire-and-forget and idempotent per load, so
+ * this stays a single call with nothing to await or clean up. See useVisitLogger for why
+ * one call beats the poll it replaced.
+ */
+onMounted(recordVisit)
 </script>
 
 <template>

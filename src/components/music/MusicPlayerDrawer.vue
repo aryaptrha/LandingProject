@@ -13,9 +13,8 @@ const { currentTrack, isPlaying, hasTracks, hasLoadError } = useMusicPlayer()
  * exists exactly while the drawer is mounted and unbinds itself on close — no
  * `watch(isOpen)` to keep in sync.
  *
- * There is no focus trap, matching the rest of the codebase (ChatSettingsModal
- * doesn't trap either). This drawer is non-modal and sits after its own toggle in
- * DOM order, so Tab walks into it naturally and back out again.
+ * There is no focus trap: this drawer is non-modal and sits after its own toggle
+ * in DOM order, so Tab walks into it naturally and back out again.
  */
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
