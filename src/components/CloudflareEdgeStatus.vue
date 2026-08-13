@@ -49,31 +49,39 @@ const isCollapsed = ref(readStoredCollapsed() ?? isMobile.value)
 
 const toggleEl = ref<HTMLButtonElement | null>(null)
 const closeEl = ref<HTMLButtonElement | null>(null)
+const panelEl = ref<HTMLElement | null>(null)
 
 /**
  * Toggles the panel and hands focus to whichever control replaced the one that was used.
  *
- * Both buttons vanish when pressed — expanding unmounts the chip, collapsing unmounts the
- * panel the ✕ is in — and focus on a vanished element falls back to `<body>`, which would
- * drop a keyboard visitor at the top of the page on every toggle. The `activeElement`
- * check keeps this to the case that needs it: a mouse click leaves the modality heuristic
- * alone, so nothing gains a visible ring that didn't have one.
+ * Both states vanish when left — expanding unmounts the chip, collapsing unmounts the
+ * whole panel — and focus on a vanished element falls back to `<body>`, which would drop
+ * a keyboard visitor at the top of the page on every toggle. The `activeElement` check
+ * keeps the hand-off to the case that needs it: a mouse click leaves the modality
+ * heuristic alone, so nothing gains a visible ring that didn't have one.
+ *
+ * Collapsing tests the whole panel rather than just the ✕, because the ✕ is not the only
+ * thing focus can be sitting on when the panel goes: an auto-collapse (below) can arrive
+ * while focus is on Refresh, and a tap that doesn't move focus — iOS Safari doesn't focus
+ * buttons on tap — leaves it there. Moving focus to the chip can't steal it from the
+ * control that triggered the auto-collapse, since if that control had focus then it, not
+ * anything in this panel, is `activeElement` and the hand-off sits out.
  *
  * `remember: false` is for a collapse this component decided on rather than the visitor —
  * currently only the chat popup claiming the bottom of a phone screen. That writes nothing
  * to storage, so a visitor who deliberately opened the panel still finds it open next
- * visit; and because such a collapse never has focus on the ✕, the hand-off below sits it
- * out and focus stays on whatever the visitor actually pressed.
+ * visit.
  */
 async function setCollapsed(collapsed: boolean, { remember = true } = {}) {
-  const from = collapsed ? closeEl.value : toggleEl.value
-  const hadFocus = from !== null && document.activeElement === from
+  const losingFocus = collapsed
+    ? panelEl.value?.contains(document.activeElement) === true
+    : document.activeElement === toggleEl.value
 
   isCollapsed.value = collapsed
   if (remember) persistCollapsed(collapsed)
   if (!collapsed) claim()
 
-  if (!hadFocus) return
+  if (!losingFocus) return
 
   // Both the chip and the panel are mounted on demand, so whichever one is taking over
   // has to exist before it can take focus.
@@ -162,7 +170,7 @@ const latencyStatusLabel = computed(() => {
   -->
   <div
     v-if="!isCollapsed"
-    id="edge-panel"
+    ref="panelEl"
     class="edge-widget"
     :class="{ 'edge-widget--mobile': isMobile }"
     role="region"

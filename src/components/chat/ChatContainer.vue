@@ -21,14 +21,25 @@ const {
 
 const isOpen = ref(false)
 
+const popupEl = ref<HTMLElement | null>(null)
+const launcherEl = ref<HTMLButtonElement | null>(null)
+
 /*
  * On a phone this popup and the edge status panel are both near-full-width bands at the
  * bottom of the screen, so only one of them can be open at a time. Nothing is lost when
  * this one is the one that gives way: the conversation lives in localStorage, so reopening
  * picks up exactly where it left off.
+ *
+ * Focus is the one thing that would be lost. The popup is unmounted, so focus anywhere
+ * inside it — the input, most likely — would fall to `<body>` and drop the visitor at the
+ * top of the page. The launcher is where it belongs anyway, being this dialog's opener.
+ * Usually the tap that claimed the space has already taken focus elsewhere, in which case
+ * this sits out and leaves it there.
  */
 const { claim } = useMobilePanel('chat', () => {
+  const losingFocus = popupEl.value?.contains(document.activeElement) === true
   isOpen.value = false
+  if (losingFocus) launcherEl.value?.focus()
 })
 
 /** Only shown on a fresh conversation — the welcome message alone, nothing asked yet. */
@@ -45,6 +56,7 @@ function toggleChat() {
   <div class="chat-widget">
     <!-- Floating Launcher Button -->
     <button
+      ref="launcherEl"
       class="chat-launcher"
       :class="{ 'chat-launcher--active': isOpen }"
       @click="toggleChat"
@@ -73,7 +85,13 @@ function toggleChat() {
 
     <!-- Floating Chat Window -->
     <Transition name="chat-popup-anim">
-      <section v-if="isOpen" class="chat-popup" role="dialog" aria-label="Chat Window with Arya">
+      <section
+        v-if="isOpen"
+        ref="popupEl"
+        class="chat-popup"
+        role="dialog"
+        aria-label="Chat Window with Arya"
+      >
         <!-- Header -->
         <ChatHeader
           :user-avatar-id="userAvatarId"

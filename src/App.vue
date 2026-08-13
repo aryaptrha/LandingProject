@@ -60,8 +60,11 @@ const menuItems = [
 
 /*
  * design.md's motion budget is 150-200ms and rules out bounce; auto-animate defaults to
- * 250ms ease-in-out, so both are set explicitly. It reads `prefers-reduced-motion` itself
- * and sits the animation out when it is set, so nothing here needs to check that.
+ * 250ms ease-in-out, hence the explicit duration. The easing only reaches the element that
+ * *moves* — the latency meter. An arrival and a departure get `ease-in` and `ease-out`
+ * hardcoded by the library, which is fine: both are plain fades with no overshoot, so
+ * they're inside design.md's rules either way. auto-animate reads `prefers-reduced-motion`
+ * itself and sits the whole thing out when it is set, so nothing here needs to check that.
  *
  * 200 rather than 150 because of how auto-animate spends it. An element leaving, and one
  * merely moving, take the full 200ms. An element *arriving* is given `duration * 1.5` —
