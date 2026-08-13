@@ -1,18 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useEdgeStatus } from '@/composables/useEdgeStatus'
 import { useLatency } from '@/composables/useLatency'
+import { useMobilePanel } from '@/composables/useMobilePanels'
 
 const { data, isLoading, error, refresh } = useEdgeStatus(30000)
 const { latency, isLoading: latencyLoading, error: latencyError, measure } = useLatency(20000, 5000)
 
-/** Mirrors the `max-width: 767px` breakpoint in the styles below; keep the two in step. */
-const MOBILE_QUERY = '(max-width: 767px)'
 const STORAGE_KEY = 'portfolio_edge_collapsed'
-
-function matchesMobile(): boolean {
-  return typeof window.matchMedia === 'function' && window.matchMedia(MOBILE_QUERY).matches
-}
 
 /** The visitor's own collapse choice, or null while they haven't made one. */
 function readStoredCollapsed(): boolean | null {
@@ -27,7 +22,22 @@ function readStoredCollapsed(): boolean | null {
   }
 }
 
-const isMobile = ref(matchesMobile())
+function persistCollapsed(collapsed: boolean) {
+  try {
+    localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0')
+  } catch {
+    // The choice still holds for the rest of this session.
+  }
+}
+
+/*
+ * The breakpoint comes from the shared composable rather than a listener of this
+ * component's own, because it now decides two things at once: how this panel lays itself
+ * out, and — since a phone's bottom edge only has room for one of them — whether opening
+ * this panel should close the chat popup.
+ */
+const { isMobile, claim } = useMobilePanel('edge', () => setCollapsed(true, { remember: false }))
+
 /*
  * Collapsed to a chip by default on a phone, where the panel would cover most of the page
  * it is reporting on; open by default on a desktop, where it has a corner to itself. Those
@@ -37,61 +47,40 @@ const isMobile = ref(matchesMobile())
  */
 const isCollapsed = ref(readStoredCollapsed() ?? isMobile.value)
 
-watch(isCollapsed, (collapsed) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0')
-  } catch {
-    // The choice still holds for the rest of this session.
-  }
-})
-
 const toggleEl = ref<HTMLButtonElement | null>(null)
 const closeEl = ref<HTMLButtonElement | null>(null)
 
 /**
  * Toggles the panel and hands focus to whichever control replaced the one that was used.
  *
- * Both buttons vanish when pressed — expanding unmounts the chip, collapsing hides the
+ * Both buttons vanish when pressed — expanding unmounts the chip, collapsing unmounts the
  * panel the ✕ is in — and focus on a vanished element falls back to `<body>`, which would
  * drop a keyboard visitor at the top of the page on every toggle. The `activeElement`
  * check keeps this to the case that needs it: a mouse click leaves the modality heuristic
  * alone, so nothing gains a visible ring that didn't have one.
+ *
+ * `remember: false` is for a collapse this component decided on rather than the visitor —
+ * currently only the chat popup claiming the bottom of a phone screen. That writes nothing
+ * to storage, so a visitor who deliberately opened the panel still finds it open next
+ * visit; and because such a collapse never has focus on the ✕, the hand-off below sits it
+ * out and focus stays on whatever the visitor actually pressed.
  */
-async function setCollapsed(collapsed: boolean) {
+async function setCollapsed(collapsed: boolean, { remember = true } = {}) {
   const from = collapsed ? closeEl.value : toggleEl.value
   const hadFocus = from !== null && document.activeElement === from
 
   isCollapsed.value = collapsed
+  if (remember) persistCollapsed(collapsed)
+  if (!collapsed) claim()
+
   if (!hadFocus) return
 
-  // The chip has to mount, and the panel has to come back out of `display: none`, before
-  // either can take focus.
+  // Both the chip and the panel are mounted on demand, so whichever one is taking over
+  // has to exist before it can take focus.
   await nextTick()
   const to = collapsed ? toggleEl.value : closeEl.value
   to?.focus()
 }
-
-/*
- * A media-query listener rather than a resize one: it fires only when the breakpoint is
- * actually crossed instead of on every pixel of a window drag, and it reads the boundary
- * from the same place the stylesheet does.
- */
-let mobileQuery: MediaQueryList | null = null
-
-function onBreakpointChange(event: MediaQueryListEvent) {
-  isMobile.value = event.matches
-}
-
-onMounted(() => {
-  if (typeof window.matchMedia !== 'function') return
-  mobileQuery = window.matchMedia(MOBILE_QUERY)
-  mobileQuery.addEventListener('change', onBreakpointChange)
-})
-
-onUnmounted(() => {
-  mobileQuery?.removeEventListener('change', onBreakpointChange)
-  mobileQuery = null
-})
 
 const lastUpdated = computed(() => {
   if (!data.value?.timestamp) return '—'
@@ -147,6 +136,9 @@ const latencyStatusLabel = computed(() => {
     the corner of their screen back should be able to have it on a desktop too. It takes
     the panel's slot in the rail, so the pair never appear at once — hence `aria-expanded`
     being flatly false here and the ✕ inside the panel being the way back.
+
+    No `aria-controls`: the panel is mounted on demand, so while this chip is showing
+    there is no element left for it to point at.
   -->
   <button
     v-if="isCollapsed"
@@ -154,7 +146,6 @@ const latencyStatusLabel = computed(() => {
     type="button"
     class="edge-toggle"
     aria-expanded="false"
-    aria-controls="edge-panel"
     title="Show edge status"
     @click="setCollapsed(false)"
   >
@@ -162,105 +153,110 @@ const latencyStatusLabel = computed(() => {
     <span class="edge-toggle__label">Edge Status</span>
   </button>
 
-  <!-- Widget panel -->
-  <Transition name="edge-fade">
-    <div
-      v-show="!isCollapsed"
-      id="edge-panel"
-      class="edge-widget"
-      :class="{ 'edge-widget--mobile': isMobile }"
-      role="region"
-      aria-label="Cloudflare Edge Status"
-    >
-      <!-- Header -->
-      <div class="edge-widget__header">
-        <span class="edge-widget__title">☁ Cloudflare Edge</span>
-        <!-- Unconditional: the panel above is `v-show`n, so while collapsed it is
-             `display: none` and this button is untabbable anyway, in the DOM or not. -->
-        <button
-          ref="closeEl"
-          type="button"
-          class="edge-widget__close"
-          aria-label="Collapse edge status panel"
-          title="Collapse"
-          @click="setCollapsed(true)"
-        >
-          ✕
-        </button>
+  <!--
+    Widget panel. `v-if` rather than `v-show`, and with no `<Transition>` of its own: the
+    rail in App.vue carries auto-animate, which animates this panel and the chip in and out
+    as they are added to and removed from it — and slides the latency meter across to meet
+    whichever one is there, instead of teleporting it. A transition here as well would put
+    two engines on the same element.
+  -->
+  <div
+    v-if="!isCollapsed"
+    id="edge-panel"
+    class="edge-widget"
+    :class="{ 'edge-widget--mobile': isMobile }"
+    role="region"
+    aria-label="Cloudflare Edge Status"
+  >
+    <!-- Header -->
+    <div class="edge-widget__header">
+      <span class="edge-widget__title">☁ Cloudflare Edge</span>
+      <button
+        ref="closeEl"
+        type="button"
+        class="edge-widget__close"
+        aria-label="Collapse edge status panel"
+        title="Collapse"
+        @click="setCollapsed(true)"
+      >
+        ✕
+      </button>
+    </div>
+
+    <!-- Error state -->
+    <div v-if="error" class="edge-widget__error">
+      <p class="edge-widget__error-text">Cloudflare Offline</p>
+      <button class="edge-widget__retry" @click="refresh">
+        Retry ⟳
+      </button>
+    </div>
+
+    <!-- Loading skeleton -->
+    <div v-else-if="isLoading && !data" class="edge-widget__skeleton">
+      <div
+        v-for="i in 8"
+        :key="i"
+        class="edge-widget__skeleton-row"
+      />
+    </div>
+
+    <!-- Data rows -->
+    <div v-else-if="data" class="edge-widget__body">
+      <div
+        v-for="row in rows"
+        :key="row.label"
+        class="edge-widget__row"
+      >
+        <span class="edge-widget__label">{{ row.label }}</span>
+        <span class="edge-widget__value">{{ row.value }}</span>
       </div>
 
-      <!-- Error state -->
-      <div v-if="error" class="edge-widget__error">
-        <p class="edge-widget__error-text">Cloudflare Offline</p>
-        <button class="edge-widget__retry" @click="refresh">
-          Retry ⟳
-        </button>
-      </div>
+      <button
+        class="edge-widget__refresh"
+        :disabled="isLoading"
+        @click="refresh"
+      >
+        {{ isLoading ? '...' : 'Refresh ⟳' }}
+      </button>
+    </div>
 
-      <!-- Loading skeleton -->
-      <div v-else-if="isLoading && !data" class="edge-widget__skeleton">
-        <div
-          v-for="i in 8"
-          :key="i"
-          class="edge-widget__skeleton-row"
+    <!-- Mobile latency section -->
+    <div v-if="isMobile" class="edge-widget__latency">
+      <div class="edge-widget__latency-header">
+        <span class="edge-widget__latency-title">Latency</span>
+        <span
+          class="edge-widget__latency-dot"
+          :style="{ background: latencyStatusColor }"
         />
       </div>
-
-      <!-- Data rows -->
-      <div v-else-if="data" class="edge-widget__body">
-        <div
-          v-for="row in rows"
-          :key="row.label"
-          class="edge-widget__row"
-        >
-          <span class="edge-widget__label">{{ row.label }}</span>
-          <span class="edge-widget__value">{{ row.value }}</span>
-        </div>
-
-        <button
-          class="edge-widget__refresh"
-          :disabled="isLoading"
-          @click="refresh"
-        >
-          {{ isLoading ? '...' : 'Refresh ⟳' }}
-        </button>
+      <div v-if="latencyError" class="edge-widget__latency-error">
+        <span>{{ latencyError }}</span>
+        <button class="edge-widget__retry" @click="measure">Retry</button>
       </div>
-
-      <!-- Mobile latency section -->
-      <div v-if="isMobile" class="edge-widget__latency">
-        <div class="edge-widget__latency-header">
-          <span class="edge-widget__latency-title">Latency</span>
-          <span
-            class="edge-widget__latency-dot"
-            :style="{ background: latencyStatusColor }"
-          />
-        </div>
-        <div v-if="latencyError" class="edge-widget__latency-error">
-          <span>{{ latencyError }}</span>
-          <button class="edge-widget__retry" @click="measure">Retry</button>
-        </div>
-        <div v-else-if="latencyLoading && !latency" class="edge-widget__latency-loading">
-          <div class="edge-widget__skeleton-row" style="width: 50%;" />
-        </div>
-        <div v-else-if="latency" class="edge-widget__latency-data">
-          <span class="edge-widget__latency-ms">{{ latency.ms }} ms</span>
-          <span
-            class="edge-widget__latency-status"
-            :style="{ color: latencyStatusColor }"
-          >
-            {{ latencyStatusLabel }}
-          </span>
-        </div>
+      <div v-else-if="latencyLoading && !latency" class="edge-widget__latency-loading">
+        <div class="edge-widget__skeleton-row" style="width: 50%;" />
+      </div>
+      <div v-else-if="latency" class="edge-widget__latency-data">
+        <span class="edge-widget__latency-ms">{{ latency.ms }} ms</span>
+        <span
+          class="edge-widget__latency-status"
+          :style="{ color: latencyStatusColor }"
+        >
+          {{ latencyStatusLabel }}
+        </span>
       </div>
     </div>
-  </Transition>
+  </div>
 </template>
 
 <style scoped>
 /*
  * Neither the chip nor the panel positions itself any more: both are laid out by the
  * `.widget-rail` in App.vue, which is what lets the latency meter close the gap when the
- * panel collapses instead of floating beside an empty corner.
+ * panel collapses instead of floating beside an empty corner — and, since the rail carries
+ * auto-animate, what lets it travel that gap rather than jump it. Neither element animates
+ * itself here for the same reason: swapping them is a change to the rail's contents, so
+ * the rail is what owns the animation.
  *
  * Solid, not glass, now that this is a control a desktop visitor sees too — design.md
  * reserves glass for surfaces and keeps buttons and chips solid.
@@ -565,17 +561,5 @@ const latencyStatusLabel = computed(() => {
 
 .edge-widget__latency-loading {
   width: 100%;
-}
-
-/* Transition */
-.edge-fade-enter-active,
-.edge-fade-leave-active {
-  transition: opacity 0.25s ease, transform 0.25s ease;
-}
-
-.edge-fade-enter-from,
-.edge-fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
 }
 </style>

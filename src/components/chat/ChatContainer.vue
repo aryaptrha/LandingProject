@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useChat } from '../../composables/useChat'
+import { useMobilePanel } from '../../composables/useMobilePanels'
 import ChatHeader from './ChatHeader.vue'
 import ChatMessageList from './ChatMessageList.vue'
 import ChatInput from './ChatInput.vue'
@@ -20,11 +21,23 @@ const {
 
 const isOpen = ref(false)
 
+/*
+ * On a phone this popup and the edge status panel are both near-full-width bands at the
+ * bottom of the screen, so only one of them can be open at a time. Nothing is lost when
+ * this one is the one that gives way: the conversation lives in localStorage, so reopening
+ * picks up exactly where it left off.
+ */
+const { claim } = useMobilePanel('chat', () => {
+  isOpen.value = false
+})
+
 /** Only shown on a fresh conversation — the welcome message alone, nothing asked yet. */
 const showPromptChips = computed(() => messages.value.length <= 1)
 
 function toggleChat() {
   isOpen.value = !isOpen.value
+  // Only on the way open. Closing takes space from nobody.
+  if (isOpen.value) claim()
 }
 </script>
 

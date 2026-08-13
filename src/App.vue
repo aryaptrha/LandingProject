@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vAutoAnimate } from '@formkit/auto-animate/vue'
 import MenuCard from './components/MenuCard.vue'
 import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
 import EdgeGuestbook from './components/EdgeGuestbook.vue'
@@ -56,6 +57,21 @@ const menuItems = [
     disabled: true,
   },
 ]
+
+/*
+ * design.md's motion budget is 150-200ms and rules out bounce; auto-animate defaults to
+ * 250ms ease-in-out, so both are set explicitly. It reads `prefers-reduced-motion` itself
+ * and sits the animation out when it is set, so nothing here needs to check that.
+ *
+ * 200 rather than 150 because of how auto-animate spends it. An element leaving, and one
+ * merely moving, take the full 200ms. An element *arriving* is given `duration * 1.5` —
+ * 300ms — but its keyframes hold it at `opacity: 0` until the halfway mark, so what that
+ * buys is a 150ms fade-in that starts once the outgoing element is most of the way gone,
+ * rather than the two crossing over each other. Every visible movement therefore lands
+ * inside the budget; the 300ms figure in devtools is half stillness. At 150 the arrival
+ * would fade in over 112ms, which is under it.
+ */
+const railMotion = { duration: 200, easing: 'ease-out' }
 </script>
 
 <template>
@@ -108,8 +124,17 @@ const menuItems = [
     being left beside a gap — it used to hardcode the panel's 260px width into its own
     `right` offset, which quietly assumed the panel was always open. Latency first, so it
     stays on the panel's left as before.
+
+    auto-animate goes here rather than inside CloudflareEdgeStatus because collapsing is a
+    change to *this* element's contents: the chip and the panel are two children swapped
+    for one another, and the meter is a third child that moves when they are. Being a
+    multi-root component, the edge widget's chip and panel are direct children of this
+    rail, which is exactly what auto-animate needs. It pins the outgoing one in place and
+    fades it, fades and scales the incoming one, and carries the meter across the distance
+    the swap opened up — none of which the widget could do from inside itself, having no
+    say over its siblings or over the rail's own geometry.
   -->
-  <div class="widget-rail">
+  <div class="widget-rail" v-auto-animate="railMotion">
     <LatencyIndicator />
     <CloudflareEdgeStatus />
   </div>
