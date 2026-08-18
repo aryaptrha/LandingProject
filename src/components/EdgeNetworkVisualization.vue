@@ -1293,10 +1293,17 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-/* Technology Stack Cards */
+/* Technology Stack Cards - Hidden on mobile to keep the layout concise and clean */
 .edge-tech-grid-wrapper {
+  display: none;
   margin-top: var(--space-lg);
   margin-bottom: var(--space-lg);
+}
+
+@media (min-width: 768px) {
+  .edge-tech-grid-wrapper {
+    display: block;
+  }
 }
 
 .edge-tech-grid-title {
