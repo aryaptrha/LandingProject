@@ -81,17 +81,20 @@ const menuItems = [
  */
 const railMotion = { duration: 200, easing: 'ease-out' }
 
-/*
- * The visit ping lives here, and only here, because App.vue is the one component
- * guaranteed to mount exactly once per page load — every widget below is conditional or
- * remountable, App is not. `recordVisit` is deferred to browser idle time so initial
- * critical UI rendering is never delayed.
- */
 onMounted(() => {
-  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-    window.requestIdleCallback(() => recordVisit())
+  if (typeof window === 'undefined') return
+  const triggerVisit = () => {
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(() => recordVisit(), { timeout: 5000 })
+    } else {
+      setTimeout(recordVisit, 2000)
+    }
+  }
+
+  if (document.readyState === 'complete') {
+    setTimeout(triggerVisit, 2000)
   } else {
-    setTimeout(recordVisit, 250)
+    window.addEventListener('load', () => setTimeout(triggerVisit, 2000), { once: true })
   }
 })
 </script>
@@ -125,7 +128,7 @@ onMounted(() => {
 
         <!-- Heavy below-the-fold sections lazy loaded with zero-CLS skeleton fallback -->
         <LazySection
-          min-height="460px"
+          min-height="480px"
           title="Edge Network Topology"
           class="grid-spacing"
         >
@@ -139,7 +142,7 @@ onMounted(() => {
           a readout of that interaction.
         -->
         <LazySection
-          min-height="360px"
+          min-height="450px"
           title="Edge Guestbook"
           class="grid-spacing"
         >
@@ -248,11 +251,9 @@ onMounted(() => {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 

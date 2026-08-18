@@ -328,10 +328,7 @@ export function useEdgeDock(el: Ref<HTMLElement | null>, options: EdgeDockOption
   hydrate()
 
   onMounted(() => {
-    // Synchronous, not left to the observer's first callback: the first render had no
-    // element to measure and so guessed a height of 0, and correcting that here still
-    // lands inside the same frame — the visitor never sees the guess.
-    measure()
+    requestAnimationFrame(measure)
 
     if (typeof ResizeObserver !== 'undefined' && el.value) {
       // Position is not size, so moving the dock cannot re-trigger this — but the

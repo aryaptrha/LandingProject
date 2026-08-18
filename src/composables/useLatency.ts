@@ -170,8 +170,23 @@ function subscribe() {
   // handler rather than polling behind a hidden tab.
   document.addEventListener('visibilitychange', handleVisibilityChange)
   if (!document.hidden) {
-    measure()
-    startInterval()
+    if (typeof window !== 'undefined' && document.readyState !== 'complete') {
+      window.addEventListener(
+        'load',
+        () => {
+          setTimeout(() => {
+            if (subscribers > 0 && !document.hidden) {
+              measure()
+              startInterval()
+            }
+          }, 400)
+        },
+        { once: true },
+      )
+    } else {
+      measure()
+      startInterval()
+    }
   }
 }
 

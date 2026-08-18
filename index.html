@@ -13,15 +13,10 @@
   <link rel="apple-touch-icon" href="/virgo.png">
   <link rel="manifest" href="/site.webmanifest">
 
-  <!-- Fonts. Preconnect warms both Google Fonts origins. The stylesheet is preloaded
-       and loaded asynchronously with display=swap so it does not block the First Contentful Paint. -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Pixelify+Sans:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Pixelify+Sans:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
-  <noscript>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Pixelify+Sans:wght@400;500;600;700&display=swap">
-  </noscript>
+  <!-- Self-Hosted Web Fonts: Preloaded directly for 0-CLS instant rendering without external hops -->
+  <link rel="preload" href="/fonts/pixelifysans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
+
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>aryaptrha Projects</title>
@@ -121,7 +116,14 @@
 </head>
 
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <div class="landing">
+      <header class="landing__header">
+        <h1 class="landing__title">aryaptrha Projects</h1>
+        <p class="landing__subtitle">A cozy collection of things I've built and explored.</p>
+      </header>
+    </div>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 

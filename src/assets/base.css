@@ -1,9 +1,23 @@
 /* Design System: 2D Pixel × Glass UI × Pastel Theme */
 
-/* Fonts (Nunito 400-700, Pixelify Sans 400-700, display=swap) are loaded via
-   <link> in index.html, not an @import here. A CSS @import is render-blocking and
-   only discovered after this stylesheet parses; the <head> preconnect + <link>
-   lets the browser fetch the font CSS in parallel with the app bundle. */
+/* Self-hosted WOFF2 fonts: preloaded in index.html to eliminate 3rd-party network hops and font-swap CLS */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/nunito-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/pixelifysans-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 :root {
   /* Background */

@@ -135,8 +135,23 @@ function subscribe() {
   // hidden, defer the first fetch to the visibility handler.
   document.addEventListener('visibilitychange', handleVisibilityChange)
   if (!document.hidden) {
-    fetchStatus()
-    startInterval()
+    if (typeof window !== 'undefined' && document.readyState !== 'complete') {
+      window.addEventListener(
+        'load',
+        () => {
+          setTimeout(() => {
+            if (subscribers > 0 && !document.hidden) {
+              fetchStatus()
+              startInterval()
+            }
+          }, 300)
+        },
+        { once: true },
+      )
+    } else {
+      fetchStatus()
+      startInterval()
+    }
   }
 }
 

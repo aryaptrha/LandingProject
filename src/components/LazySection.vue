@@ -57,9 +57,26 @@ onBeforeUnmount(() => {
   <div
     ref="targetRef"
     class="lazy-section"
-    :style="{ minHeight: !isIntersected ? minHeight : undefined }"
+    :style="{ minHeight }"
   >
-    <slot v-if="isIntersected" />
+    <Suspense v-if="isIntersected">
+      <template #default>
+        <slot />
+      </template>
+      <template #fallback>
+        <div
+          class="lazy-section__skeleton"
+          :style="{ minHeight }"
+          aria-hidden="true"
+        >
+          <div v-if="title" class="skeleton-header">
+            <div class="skeleton-pill skeleton-shimmer"></div>
+            <span class="skeleton-label">{{ title }}</span>
+          </div>
+          <div class="skeleton-body skeleton-shimmer"></div>
+        </div>
+      </template>
+    </Suspense>
     <div
       v-else
       class="lazy-section__skeleton"
@@ -78,6 +95,8 @@ onBeforeUnmount(() => {
 <style scoped>
 .lazy-section {
   width: 100%;
+  content-visibility: auto;
+  contain-intrinsic-size: auto v-bind(minHeight);
 }
 
 .lazy-section__skeleton {

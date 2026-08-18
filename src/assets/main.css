@@ -2,6 +2,8 @@
 
 #app {
   max-width: 1200px;
+  min-height: 100vh;
   margin: 0 auto;
   padding: var(--space-2xl);
+  box-sizing: border-box;
 }
