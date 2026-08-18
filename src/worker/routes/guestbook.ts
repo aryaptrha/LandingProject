@@ -11,6 +11,7 @@ import {
 import { cacheKey, cached, invalidate } from '../services/kv.service'
 import { checkRateLimit, ipBucket, rateLimitHeaders } from '../services/ratelimit.service'
 import { buildSessionCookie, resolveSession } from '../services/session.service'
+import { verifyTurnstileToken } from '../services/turnstile.service'
 import type { GuestbookPage, GuestbookStats } from '../types/data'
 import type { AppEnv } from '../types/env'
 import { missingBindings, readStorage, storageUnavailableMessage } from '../utils/bindings'
@@ -160,6 +161,44 @@ guestbook.post('/guestbook', async (c) => {
     raw = await c.req.json()
   } catch {
     return error('Body must be valid JSON.', 'BAD_REQUEST', 400, limitHeaders)
+  }
+
+  // Turnstile bot verification (if secret key is configured on worker environment)
+  const turnstileSecret = c.env?.TURNSTILE_SECRET_KEY
+  if (turnstileSecret && turnstileSecret.trim()) {
+    const rawObj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+    const turnstileToken =
+      typeof rawObj.turnstileToken === 'string'
+        ? rawObj.turnstileToken
+        : typeof rawObj['cf-turnstile-response'] === 'string'
+          ? rawObj['cf-turnstile-response']
+          : ''
+
+    const allowedHostnames = c.env?.TURNSTILE_HOSTNAMES
+      ? c.env.TURNSTILE_HOSTNAMES.split(',')
+          .map((h) => h.trim())
+          .filter(Boolean)
+      : undefined
+
+    const clientIp =
+      c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || undefined
+
+    const verification = await verifyTurnstileToken({
+      token: turnstileToken,
+      secretKey: turnstileSecret,
+      clientIp,
+      expectedAction: 'guestbook_post',
+      expectedHostnames: allowedHostnames,
+    })
+
+    if (!verification.success) {
+      return error(
+        verification.message ?? 'Verifikasi bot gagal. Silakan coba lagi.',
+        'BOT_VERIFICATION_FAILED',
+        403,
+        limitHeaders,
+      )
+    }
   }
 
   const validated = validateInput(raw)

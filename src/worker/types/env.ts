@@ -31,6 +31,16 @@ export interface Env {
    * locally, where the worker's origin is 127.0.0.1 and would be rejected.
    */
   PERSONA_ORIGIN?: string
+  /**
+   * Cloudflare Turnstile secret key for bot verification.
+   * Set via `wrangler secret put TURNSTILE_SECRET_KEY` or in `.dev.vars`.
+   */
+  TURNSTILE_SECRET_KEY?: string
+  /**
+   * Comma-separated list of allowed hostnames for Turnstile verification (e.g. "localhost,127.0.0.1,aryaptrha.pages.dev").
+   * Optional; when set, prevents token reuse across different hostnames.
+   */
+  TURNSTILE_HOSTNAMES?: string
 }
 
 /** Hono generic for routes that need typed access to `c.env`. */

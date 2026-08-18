@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import AvengerPixelAvatar from '@/components/chat/AvengerPixelAvatar.vue'
 import { AVENGERS_AVATARS } from '@/components/chat/avengerAvatars'
+import TurnstileWidget from '@/components/TurnstileWidget.vue'
 import {
   MAX_MESSAGE_LENGTH,
   MAX_NAME_LENGTH,
@@ -32,10 +33,24 @@ const { config } = useSiteConfig()
 
 const draft = ref({ name: '', message: '', avatarId: 'ironman' })
 const justPosted = ref(false)
+const turnstileToken = ref('')
+const turnstileWidgetRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 let postedTimer: ReturnType<typeof setTimeout> | null = null
 
 const nameLength = computed(() => countChars(draft.value.name))
 const messageLength = computed(() => countChars(draft.value.message))
+
+function onTurnstileVerify(token: string) {
+  turnstileToken.value = token
+}
+
+function onTurnstileExpire() {
+  turnstileToken.value = ''
+}
+
+function onTurnstileError() {
+  turnstileToken.value = ''
+}
 
 const canSubmit = computed(
   () =>
@@ -102,7 +117,12 @@ async function handleSubmit() {
     name: draft.value.name,
     message: draft.value.message,
     avatarId: draft.value.avatarId,
+    turnstileToken: turnstileToken.value,
   })
+
+  // Turnstile tokens are single-use — reset after any submission attempt
+  turnstileWidgetRef.value?.reset()
+  turnstileToken.value = ''
 
   if (!posted) return
 
@@ -221,6 +241,17 @@ onUnmounted(() => {
           >
             {{ messageLength }}/{{ MAX_MESSAGE_LENGTH }}
           </span>
+        </div>
+
+        <div class="guestbook__turnstile">
+          <TurnstileWidget
+            ref="turnstileWidgetRef"
+            action="guestbook_post"
+            theme="auto"
+            @verify="onTurnstileVerify"
+            @expire="onTurnstileExpire"
+            @error="onTurnstileError"
+          />
         </div>
 
         <div class="guestbook__actions">
@@ -695,6 +726,7 @@ onUnmounted(() => {
   }
 
   .guestbook__avatars,
+  .guestbook__turnstile,
   .guestbook__actions,
   .guestbook__submit-error {
     grid-column: 1 / -1;

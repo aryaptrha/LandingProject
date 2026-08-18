@@ -90,13 +90,14 @@ only the worker config pulls in `@cloudflare/workers-types`.
 | `/api/chat` | POST | Proxies to the persona backend, or a canned reply |
 | `/api/visitor` | GET | Logs one visit; pinged once per load from `App.vue` |
 | `/api/config` | GET | Site config consumed by `useSiteConfig` |
-| `/api/guestbook` | GET, POST | Entries and submission — D1 |
+| `/api/guestbook` | GET, POST | Entries and submission (Turnstile protected) — D1 |
 | `/api/guestbook/stats` | GET | Aggregates for the insights panel — D1 |
 | `/api/insights` | GET | Visit + guestbook rollups — D1 |
 
 The `request.cf`-only routes (`edge-status`, `latency`) need zero configuration
 and work the moment the worker is deployed; locally their values are miniflare
-placeholders or `unknown`. `/api/chat` needs the persona secrets, and the
+placeholders or `unknown`. `/api/chat` needs the persona secrets, `/api/guestbook`
+is protected with Cloudflare Turnstile bot verification, and the
 storage-backed routes need D1 and KV — run `npm run db:migrate` before using
 them locally.
 

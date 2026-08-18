@@ -66,14 +66,25 @@ build.
 
 ## Environment variables
 
-All three live in `.dev.vars` locally and as **worker secrets** in production.
-None of them is a `VITE_*` var, and none may become one.
+Worker secrets live in `.dev.vars` locally and as **worker secrets** in production.
+Public client keys live in `.env` (prefixed with `VITE_`).
 
-| Var | Required | Purpose |
-| --- | -------- | ------- |
-| `PERSONA_API_URL` | No — falls back to a canned reply | Base URL of the persona backend |
-| `PERSONA_ORIGIN` | **Locally, yes** | Origin presented upstream for its allowlist |
-| `PERSONA_API_KEY` | Only if the backend requires auth | Bearer token sent upstream |
+| Var | Layer | Required | Purpose |
+| --- | ----- | -------- | ------- |
+| `PERSONA_API_URL` | Worker | No — falls back to canned reply | Base URL of the persona backend |
+| `PERSONA_ORIGIN` | Worker | **Locally, yes** | Origin presented upstream for its allowlist |
+| `PERSONA_API_KEY` | Worker | Only if backend requires auth | Bearer token sent upstream |
+| `TURNSTILE_SECRET_KEY` | Worker | For bot verification | Turnstile secret key for server-side siteverify |
+| `TURNSTILE_HOSTNAMES` | Worker | Optional | Comma-separated allowed hostnames for Turnstile |
+| `VITE_TURNSTILE_SITE_KEY` | Client | Optional (defaults to test key) | Turnstile public site key for frontend widget |
+
+### Turnstile Bot Protection in Development
+
+In local development, if `VITE_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are not set, the app automatically defaults to Cloudflare's dummy test keys:
+- Site Key: `1x00000000000000000000AA` (Always passes)
+- Secret Key: `1x0000000000000000000000000000000AA` (Always passes)
+
+This lets you test the guestbook submission flow locally without creating a Cloudflare Turnstile widget first.
 
 ### Why `PERSONA_ORIGIN` matters more locally than in production
 

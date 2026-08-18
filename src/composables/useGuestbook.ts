@@ -36,6 +36,7 @@ export interface GuestbookDraft {
   name: string
   message: string
   avatarId: string
+  turnstileToken?: string
 }
 
 /** Mirrors MAX_MESSAGE_LENGTH / MAX_NAME_LENGTH in the worker's guestbook service. */

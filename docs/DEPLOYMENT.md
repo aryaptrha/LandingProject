@@ -43,10 +43,13 @@ Three worker vars, documented in `wrangler.toml` and in `.dev.vars.example`:
 | `PERSONA_API_URL` | For real chat | Base URL of the persona backend |
 | `PERSONA_API_KEY` | Only if upstream needs auth | Bearer token sent upstream |
 | `PERSONA_ORIGIN` | **No — omit in production** | Override for the origin presented upstream |
+| `TURNSTILE_SECRET_KEY` | For bot verification | Cloudflare Turnstile secret key for server-side siteverify |
+| `TURNSTILE_HOSTNAMES` | Optional | Comma-separated allowed hostnames for Turnstile |
 
 ```bash
 npx wrangler secret put PERSONA_API_URL
 npx wrangler secret put PERSONA_API_KEY    # skip if the backend needs no auth
+npx wrangler secret put TURNSTILE_SECRET_KEY # paste Turnstile secret from Cloudflare dashboard
 ```
 
 Each command prompts for the value and does not echo it.
@@ -160,8 +163,10 @@ versioned and are unaffected.
 - [ ] `npm run deploy`
 - [ ] `npx wrangler secret put PERSONA_API_URL` (after the first deploy)
 - [ ] `npx wrangler secret put PERSONA_API_KEY` if upstream requires auth
+- [ ] `npx wrangler secret put TURNSTILE_SECRET_KEY` (Cloudflare Turnstile secret)
 - [ ] `PERSONA_ORIGIN` deliberately **not** set
 - [ ] Custom domain attached
+- [ ] Turnstile widget configured with production domain & `VITE_TURNSTILE_SITE_KEY` set in build env
 - [ ] Backend's origin allowlist includes `https://aryaptrha.fun` — see
       [BACKEND-CONTRACT.md](BACKEND-CONTRACT.md)
 - [ ] `curl` the three routes above
