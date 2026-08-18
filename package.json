@@ -10,7 +10,7 @@
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "cf": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "npm run build && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply aryaptrha-portfolio-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply aryaptrha-portfolio-db --remote",
     "db:list": "wrangler d1 migrations list aryaptrha-portfolio-db --local",
