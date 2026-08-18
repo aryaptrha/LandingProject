@@ -1,21 +1,24 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, defineAsyncComponent } from 'vue'
 import { vAutoAnimate } from '@formkit/auto-animate/vue'
 import { recordVisit } from './composables/useVisitLogger'
 import MenuCard from './components/MenuCard.vue'
 import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
-import EdgeGuestbook from './components/EdgeGuestbook.vue'
-import EdgeInsights from './components/EdgeInsights.vue'
-import EdgeNetworkVisualization from './components/EdgeNetworkVisualization.vue'
 import LatencyIndicator from './components/LatencyIndicator.vue'
-import ChatContainer from './components/chat/ChatContainer.vue'
-import MusicPlayerWidget from './components/music/MusicPlayerWidget.vue'
 import ThemeToggle from './components/ThemeToggle.vue'
+import LazySection from './components/LazySection.vue'
 import IconGameDev from './components/icons/IconGameDev.vue'
 import IconBackend from './components/icons/IconBackend.vue'
 import IconMobile from './components/icons/IconMobile.vue'
 import IconDesign from './components/icons/IconDesign.vue'
 import IconOpenSource from './components/icons/IconOpenSource.vue'
+
+// Async-loaded heavy below-the-fold and floating components
+const EdgeNetworkVisualization = defineAsyncComponent(() => import('./components/EdgeNetworkVisualization.vue'))
+const EdgeGuestbook = defineAsyncComponent(() => import('./components/EdgeGuestbook.vue'))
+const EdgeInsights = defineAsyncComponent(() => import('./components/EdgeInsights.vue'))
+const ChatContainer = defineAsyncComponent(() => import('./components/chat/ChatContainer.vue'))
+const MusicPlayerWidget = defineAsyncComponent(() => import('./components/music/MusicPlayerWidget.vue'))
 
 const menuItems = [
   {
@@ -81,11 +84,16 @@ const railMotion = { duration: 200, easing: 'ease-out' }
 /*
  * The visit ping lives here, and only here, because App.vue is the one component
  * guaranteed to mount exactly once per page load — every widget below is conditional or
- * remountable, App is not. `recordVisit` is fire-and-forget and idempotent per load, so
- * this stays a single call with nothing to await or clean up. See useVisitLogger for why
- * one call beats the poll it replaced.
+ * remountable, App is not. `recordVisit` is deferred to browser idle time so initial
+ * critical UI rendering is never delayed.
  */
-onMounted(recordVisit)
+onMounted(() => {
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(() => recordVisit())
+  } else {
+    setTimeout(recordVisit, 250)
+  }
+})
 </script>
 
 <template>
@@ -115,7 +123,14 @@ onMounted(recordVisit)
           </div>
         </div>
 
-        <EdgeNetworkVisualization class="grid-spacing" />
+        <!-- Heavy below-the-fold sections lazy loaded with zero-CLS skeleton fallback -->
+        <LazySection
+          min-height="460px"
+          title="Edge Network Topology"
+          class="grid-spacing"
+        >
+          <EdgeNetworkVisualization />
+        </LazySection>
 
         <!--
           Below the network map on purpose: that panel shows the edge is there, and
@@ -123,8 +138,21 @@ onMounted(recordVisit)
           the one a visitor can interact with; insights second, because it is partly
           a readout of that interaction.
         -->
-        <EdgeGuestbook class="grid-spacing" />
-        <EdgeInsights class="grid-spacing" />
+        <LazySection
+          min-height="360px"
+          title="Edge Guestbook"
+          class="grid-spacing"
+        >
+          <EdgeGuestbook />
+        </LazySection>
+
+        <LazySection
+          min-height="240px"
+          title="Live Edge Insights"
+          class="grid-spacing"
+        >
+          <EdgeInsights />
+        </LazySection>
       </section>
     </main>
   </div>

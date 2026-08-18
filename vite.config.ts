@@ -15,6 +15,23 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('vue') || id.includes('@vue')) {
+              return 'vendor-vue'
+            }
+            if (id.includes('@formkit/auto-animate')) {
+              return 'vendor-autoanimate'
+            }
+            return 'vendor-libs'
+          }
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {
