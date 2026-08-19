@@ -197,10 +197,16 @@ Worth knowing before debugging anything chat-related:
 
 ```
 Browser
-  └─ POST /api/chat   {messages:[{role,content}]}
-       │  (dev: Vite 5173 proxies to 8788)
-       ▼
+  ├─ 1. Turnstile solves challenge → POST /api/session { turnstileToken }
+  │     └─ Worker verifies via Cloudflare siteverify & issues HMAC X-Session-Token
+  │
+  └─ 2. POST /api/chat   {messages:[{role,content}]}
+        Headers: X-Session-Token: <signed_token>
+        │  (dev: Vite 5173 proxies to 8788)
+        ▼
 Worker  src/worker/routes/chat.ts
+  ├─ Validates X-Session-Token (signature + expiry + tamper protection)
+  ├─ Rate limits requests via KV
   ├─ PERSONA_API_URL unset  → canned Indonesian reply
   └─ set → fetch(<url>/api/chat) with Origin, Referer,
            Accept: text/event-stream, application/json,

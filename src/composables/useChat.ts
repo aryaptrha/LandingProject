@@ -1,4 +1,4 @@
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import { consumeSseStream } from '../utils/sse'
 
 export interface ChatMessage {
@@ -6,12 +6,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   /**
-   * ISO 8601 instant (`new Date().toISOString()`), NOT a display string. A
-   * locale time like "14:32" frozen at creation is wrong the moment it is
-   * re-read across a timezone or on another day; the renderer formats it on
-   * demand. Migration note for consumers: messages persisted by older builds
-   * hold a pre-formatted locale string, so a renderer must fall back to showing
-   * the value verbatim when `Date` parsing fails.
+   * ISO 8601 instant (`new Date().toISOString()`), NOT a display string.
    */
   timestamp: string
   status?: 'sending' | 'error' | 'sent'
@@ -23,18 +18,14 @@ const STORAGE_KEYS = {
   API_KEY: 'persona_chat_api_key',
   MESSAGES: 'persona_chat_messages',
   USER_AVATAR: 'persona_chat_user_avatar',
+  SESSION_TOKEN: 'chat_session_token',
 }
 
 /**
  * Resolves the chat endpoint.
  *
  * Always defaults to the worker's own `/api/chat`, which proxies to the persona
- * backend using the `PERSONA_API_URL` secret. The upstream host is deliberately
- * NOT read from a `VITE_*` var — those are inlined into the client bundle, which
- * would publish the upstream URL to every visitor.
- *
- * The localStorage override remains for pointing a local build at a different
- * backend while debugging.
+ * backend using the `PERSONA_API_URL` secret.
  */
 function getActiveEndpoint(): string {
   const saved = localStorage.getItem(STORAGE_KEYS.ENDPOINT)
@@ -47,10 +38,7 @@ function getActiveEndpoint(): string {
 const DEFAULT_ENDPOINT = '/api/chat'
 
 /**
- * Monotonic counter for message ids. `Date.now()` alone collides when two sends
- * land inside the same millisecond (the role prefixes only stop a user/assistant
- * pair within one send from colliding). Appending an ever-increasing counter
- * makes every id unique for the module's lifetime.
+ * Monotonic counter for message ids.
  */
 let idCounter = 0
 function nextMessageId(prefix: string): string {
@@ -84,10 +72,12 @@ export function useChat() {
   const isLoading = ref<boolean>(false)
   const error = ref<string | null>(null)
 
-  // The in-flight request's controller, lifted out of `sendMessage` so `stop()`
-  // can reach it. `stoppedByUser` records that an abort was a deliberate Stop
-  // rather than a timeout — both arrive as a DOMException AbortError, so the
-  // catch can't tell them apart without this flag. Both reset per send.
+  // Session Token State for Bot / Anti-Scraping / Postman Protection
+  const sessionToken = ref<string>(sessionStorage.getItem(STORAGE_KEYS.SESSION_TOKEN) || '')
+  const isSessionVerified = computed(() => Boolean(sessionToken.value && sessionToken.value.trim()))
+  const isVerifyingSession = ref<boolean>(false)
+  const sessionError = ref<string | null>(null)
+
   let activeController: AbortController | null = null
   let stoppedByUser = false
 
@@ -148,11 +138,46 @@ export function useChat() {
     }
   }
 
-  // localStorage is a fixed ~5MB budget shared with every other key. An
-  // unbounded chat history eventually overflows it, and the catch below would
-  // then swallow every write forever, silently losing new messages. Cap what we
-  // persist to the most recent 100. The in-memory `messages` ref keeps the full
-  // session history untouched — only the on-disk copy is trimmed.
+  /**
+   * Exchanges a valid Turnstile token for a signed X-Session-Token via POST /api/session
+   */
+  async function setSessionFromTurnstile(turnstileToken: string): Promise<boolean> {
+    if (!turnstileToken) return false
+    isVerifyingSession.value = true
+    sessionError.value = null
+
+    try {
+      const res = await fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ turnstileToken }),
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        const token = data.data?.sessionToken || data.sessionToken
+        if (token) {
+          sessionToken.value = token
+          sessionStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, token)
+          return true
+        }
+      }
+
+      sessionError.value = data.error || data.message || 'Verifikasi keamanan gagal.'
+      return false
+    } catch (err) {
+      sessionError.value = err instanceof Error ? err.message : 'Gagal menghubungi server verifikasi.'
+      return false
+    } finally {
+      isVerifyingSession.value = false
+    }
+  }
+
+  function clearSession() {
+    sessionToken.value = ''
+    sessionStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN)
+  }
+
   const PERSIST_LIMIT = 100
   watch(
     messages,
@@ -165,15 +190,9 @@ export function useChat() {
         // Storage limit protection
       }
     },
-    { deep: true }
+    { deep: true },
   )
 
-  /**
-   * Cancel the in-flight reply. A no-op when nothing is streaming. Setting
-   * `stoppedByUser` first lets the `catch` in `sendMessage` label this abort as
-   * a deliberate stop rather than a timeout; whatever streamed in so far is
-   * preserved exactly as it is for a timeout abort.
-   */
   function stop() {
     if (activeController) {
       stoppedByUser = true
@@ -237,14 +256,10 @@ export function useChat() {
 
     messages.value.push(assistantMsg)
 
-    // Fresh controller per send. Reset the deliberate-stop flag first so a Stop
-    // from a previous request can't leak into this one's abort classification.
     stoppedByUser = false
     const controller = new AbortController()
     activeController = controller
 
-    // Apologetic notice if nothing has come back yet. For a stream this is cleared
-    // on the *first token*, not on completion — once text is moving, we're not stuck.
     let slowTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
       const targetMsg = messages.value.find((m) => m.id === assistantMsgId)
       if (targetMsg && targetMsg.status === 'sending') {
@@ -259,10 +274,9 @@ export function useChat() {
       }
     }
 
-    // Hard ceiling so a wedged upstream can't leave the UI spinning forever.
     let hardTimer: ReturnType<typeof setTimeout> | null = setTimeout(
       () => controller.abort(),
-      REQUEST_TIMEOUT_MS
+      REQUEST_TIMEOUT_MS,
     )
     const clearHardTimer = () => {
       if (hardTimer) {
@@ -271,8 +285,6 @@ export function useChat() {
       }
     }
 
-    // A long stream is legitimate, a silent one is not. Once tokens flow, the
-    // overall ceiling is replaced by this idle watchdog, reset on every chunk.
     let idleTimer: ReturnType<typeof setTimeout> | null = null
     const bumpIdleTimer = () => {
       if (idleTimer) clearTimeout(idleTimer)
@@ -295,6 +307,11 @@ export function useChat() {
         headers['Authorization'] = `Bearer ${apiKey.value}`
       }
 
+      // Attach X-Session-Token header for bot/postman protection
+      if (sessionToken.value) {
+        headers['X-Session-Token'] = sessionToken.value
+      }
+
       const targetUrl = endpointUrl.value || DEFAULT_ENDPOINT
 
       const response = await fetch(targetUrl, {
@@ -306,7 +323,21 @@ export function useChat() {
 
       if (!response.ok) {
         const errText = await response.text().catch(() => '')
-        throw new Error(`HTTP ${response.status}: ${errText || response.statusText}`)
+
+        // If session token was rejected or expired, clear local session token
+        if (response.status === 401 || response.status === 403) {
+          clearSession()
+        }
+
+        let parsedMessage = ''
+        try {
+          const errJson = JSON.parse(errText)
+          parsedMessage = errJson.error || errJson.message
+        } catch {
+          // ignore
+        }
+
+        throw new Error(parsedMessage || `HTTP ${response.status}: ${errText || response.statusText}`)
       }
 
       const contentType = response.headers.get('content-type') || ''
@@ -332,8 +363,7 @@ export function useChat() {
         return
       }
 
-      // Non-streaming path. parseApiResponse stays untouched — it is deliberately
-      // tolerant of several upstream envelope shapes.
+      // Non-streaming path.
       let replyContent = ''
 
       if (contentType.includes('application/json')) {
@@ -353,9 +383,6 @@ export function useChat() {
       }
     } catch (err) {
       const aborted = err instanceof DOMException && err.name === 'AbortError'
-      // A user Stop and a timeout both surface as AbortError; `stoppedByUser` is
-      // the only signal that separates "you cancelled this" from "it hung".
-      // Without it a deliberate Stop would falsely read as "Waktu tunggu habis".
       const errMsg = aborted
         ? stoppedByUser
           ? 'Dihentikan'
@@ -367,7 +394,6 @@ export function useChat() {
 
       const targetMsg = messages.value.find((m) => m.id === assistantMsgId)
       if (targetMsg) {
-        // Keep whatever streamed in before the break instead of throwing it away.
         targetMsg.content = targetMsg.content
           ? `${targetMsg.content}\n\n⚠️ (Terputus: ${errMsg})`
           : `⚠️ Maaf, gagal terhubung ke server (${errMsg}). Coba cek koneksi kamu dulu ya, terus kirim lagi.`
@@ -377,23 +403,18 @@ export function useChat() {
       clearSlowTimer()
       clearHardTimer()
       clearIdleTimer()
-      // Nothing is in flight once we reach here, so a later `stop()` must not
-      // find a stale controller and abort an unrelated future request.
       activeController = null
       isLoading.value = false
     }
   }
 
-  // Parse API payload response schema: {"success": true, "reply": "the answer"}
   function parseApiResponse(data: any): string {
     if (!data) return ''
     if (typeof data === 'string') return data
 
-    // Check {"success": true, "reply": "..."} or {"reply": "..."}
     if (typeof data.reply === 'string') return data.reply
     if (data.data && typeof data.data.reply === 'string') return data.data.reply
 
-    // Check data.messages array
     if (Array.isArray(data.messages) && data.messages.length > 0) {
       const last = data.messages[data.messages.length - 1]
       if (last && last.content) return last.content
@@ -404,14 +425,12 @@ export function useChat() {
       if (last && last.content) return last.content
     }
 
-    // Check OpenAI standard choices format
     if (Array.isArray(data.choices) && data.choices.length > 0) {
       const choice = data.choices[0]
       if (choice.message && choice.message.content) return choice.message.content
       if (choice.text) return choice.text
     }
 
-    // Single message object / fallbacks
     if (data.message && data.message.content) return data.message.content
     if (data.response) return typeof data.response === 'string' ? data.response : JSON.stringify(data.response)
     if (data.content) return typeof data.content === 'string' ? data.content : JSON.stringify(data.content)
@@ -428,6 +447,12 @@ export function useChat() {
     messages,
     isLoading,
     error,
+    sessionToken,
+    isSessionVerified,
+    isVerifyingSession,
+    sessionError,
+    setSessionFromTurnstile,
+    clearSession,
     sendMessage,
     stop,
     clearMessages,

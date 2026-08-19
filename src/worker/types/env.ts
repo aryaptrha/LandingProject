@@ -37,6 +37,11 @@ export interface Env {
    */
   TURNSTILE_SECRET_KEY?: string
   /**
+   * Optional dedicated secret key for signing X-Session-Token.
+   * Defaults to TURNSTILE_SECRET_KEY if not specified.
+   */
+  SESSION_SECRET?: string
+  /**
    * Comma-separated list of allowed hostnames for Turnstile verification (e.g. "localhost,127.0.0.1,aryaptrha.pages.dev").
    * Optional; when set, prevents token reuse across different hostnames.
    */

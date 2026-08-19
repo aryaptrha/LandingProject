@@ -3,6 +3,7 @@ import { edge } from './routes/edge'
 import { latency } from './routes/latency'
 import { visitor } from './routes/visitor'
 import { chat } from './routes/chat'
+import { session } from './routes/session'
 import { config } from './routes/config'
 import { guestbook } from './routes/guestbook'
 import { insights } from './routes/insights'
@@ -16,6 +17,7 @@ api.route('/api', edge)
 api.route('/api', latency)
 api.route('/api', visitor)
 api.route('/api', chat)
+api.route('/api', session)
 
 // Storage-backed routes. These are the only ones that touch D1 or KV, and each
 // degrades to a 503 naming the missing binding rather than failing the request.

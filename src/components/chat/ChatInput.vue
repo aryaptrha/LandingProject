@@ -1,15 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRetroSound } from '../../composables/useRetroSound'
 
-const props = defineProps<{
-  isLoading: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    isLoading: boolean
+    disabled?: boolean
+    placeholder?: string
+  }>(),
+  {
+    disabled: false,
+    placeholder: 'Type a message...',
+  },
+)
 
 // Props down, events up: this component stays purely presentational and never
 // imports useChat. `stop` is emitted while a reply is streaming so the parent
-// (ChatContainer -> useChat.stop) can abort the in-flight request. See the
-// stop-button cross-component contract.
+// (ChatContainer -> useChat.stop) can abort the in-flight request.
 const emit = defineEmits<{
   (e: 'send', content: string): void
   (e: 'stop'): void
@@ -20,8 +27,10 @@ const { playBlip, playToggle } = useRetroSound()
 const inputText = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
+const isEffectivelyDisabled = computed(() => props.isLoading || props.disabled)
+
 function handleSend() {
-  if (!inputText.value.trim() || props.isLoading) return
+  if (!inputText.value.trim() || isEffectivelyDisabled.value) return
   playBlip()
   emit('send', inputText.value)
   inputText.value = ''
@@ -31,9 +40,7 @@ function handleSend() {
 }
 
 // The single primary control changes role with `isLoading`: it sends when idle
-// and stops the stream while a reply is in flight. Keeping it one button in
-// place (rather than a second floating one) keeps the primary action a single
-// predictable target.
+// and stops the stream while a reply is in flight.
 function handlePrimaryAction() {
   if (props.isLoading) {
     playToggle()
@@ -46,8 +53,7 @@ function handlePrimaryAction() {
 function handleKeyDown(event: KeyboardEvent) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
-    // Enter only ever sends. handleSend early-returns while loading, so Enter can
-    // never trigger stop — stopping is always a deliberate click on the control.
+    // Enter only ever sends. handleSend early-returns while loading or disabled.
     handleSend()
   }
 }
@@ -70,9 +76,9 @@ function adjustHeight() {
         v-model="inputText"
         class="chat-input"
         aria-label="Message"
-        placeholder="Type a message..."
+        :placeholder="placeholder"
         rows="1"
-        :disabled="isLoading"
+        :disabled="isEffectivelyDisabled"
         @keydown="handleKeyDown"
         @input="adjustHeight"
       ></textarea>
@@ -81,15 +87,12 @@ function adjustHeight() {
         class="send-btn"
         :class="{ 'send-btn--stop': isLoading }"
         type="button"
-        :disabled="!isLoading && !inputText.trim()"
+        :disabled="(!isLoading && !inputText.trim()) || (!isLoading && disabled)"
         :title="isLoading ? 'Stop generating' : 'Send message'"
         :aria-label="isLoading ? 'Stop generating' : 'Send message'"
         @click="handlePrimaryAction"
       >
-        <!-- Stop glyph: a hand-authored filled square on the same 16-unit grid as
-             the send arrow below, authored fresh rather than scaled from the send
-             icon so the two states never share pixel geometry. crispEdges keeps it
-             from anti-aliasing at any render size. -->
+        <!-- Stop glyph -->
         <svg
           v-if="isLoading"
           viewBox="0 0 16 16"
@@ -101,6 +104,7 @@ function adjustHeight() {
         >
           <rect x="4" y="4" width="8" height="8" />
         </svg>
+        <!-- Send arrow -->
         <svg
           v-else
           viewBox="0 0 16 16"
@@ -164,9 +168,7 @@ function adjustHeight() {
   cursor: not-allowed;
 }
 
-/* Solid pastel control (never glass, per design.md's Solid components list). The
-   44x44 box meets the minimum hit area for both the Send and Stop states so the
-   Stop target is never smaller than what a touch needs. */
+/* Solid pastel control */
 .send-btn {
   display: inline-flex;
   align-items: center;
@@ -182,8 +184,6 @@ function adjustHeight() {
   flex-shrink: 0;
 }
 
-/* Motion stays inside the 150-200ms / scale 1.00->1.02 budget: lift on hover,
-   settle back to rest on press. */
 .send-btn:hover:not(:disabled) {
   transform: scale(1.02);
   background: var(--blue-deep);

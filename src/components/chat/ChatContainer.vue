@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useChat } from '../../composables/useChat'
 import { useMobilePanel } from '../../composables/useMobilePanels'
 import { useRetroSound } from '../../composables/useRetroSound'
+import TurnstileWidget from '../TurnstileWidget.vue'
 import AryaPixelFace from './AryaPixelFace.vue'
 import ChatHeader from './ChatHeader.vue'
 import ChatMessageList from './ChatMessageList.vue'
@@ -21,27 +22,20 @@ const {
   setUserAvatar,
   openAvatarPicker,
   closeAvatarPicker,
+  isSessionVerified,
+  isVerifyingSession,
+  sessionError,
+  setSessionFromTurnstile,
 } = useChat()
 
-const { playPop, playToggle } = useRetroSound()
+const { playPop, playToggle, playSuccess, playError } = useRetroSound()
 
 const isOpen = ref(false)
+const turnstileWidgetRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 
 const popupEl = ref<HTMLElement | null>(null)
 const launcherEl = ref<HTMLButtonElement | null>(null)
 
-/*
- * On a phone this popup and the edge status panel are both near-full-width bands at the
- * bottom of the screen, so only one of them can be open at a time. Nothing is lost when
- * this one is the one that gives way: the conversation lives in localStorage, so reopening
- * picks up exactly where it left off.
- *
- * Focus is the one thing that would be lost. The popup is unmounted, so focus anywhere
- * inside it — the input, most likely — would fall to `<body>` and drop the visitor at the
- * top of the page. The launcher is where it belongs anyway, being this dialog's opener.
- * Usually the tap that claimed the space has already taken focus elsewhere, in which case
- * this sits out and leaves it there.
- */
 const { claim } = useMobilePanel('chat', () => {
   const losingFocus = popupEl.value?.contains(document.activeElement) === true
   isOpen.value = false
@@ -51,12 +45,6 @@ const { claim } = useMobilePanel('chat', () => {
 /** Only shown on a fresh conversation — the welcome message alone, nothing asked yet. */
 const showPromptChips = computed(() => messages.value.length <= 1)
 
-/*
- * The avatar picker overlays the popup on a fresh conversation (no avatar chosen yet) or
- * whenever the visitor reopens it to switch heroes. This mirrors the template's own
- * render condition for the picker, kept in one place so the Escape handler and the
- * focus-on-open below can both defer to the picker for exactly as long as it is on screen.
- */
 const isPickerShown = computed(() => isAvatarPickerOpen.value || !userAvatarId.value)
 
 function toggleChat() {
@@ -69,24 +57,30 @@ function toggleChat() {
   }
 }
 
-/*
- * Dialog accessibility, following the music shell as the in-repo reference
- * (MusicPlayerWidget for the launcher's aria state, MusicPlayerDrawer for the
- * mount-scoped Escape listener): the launcher advertises open/closed, focus moves into
- * the popup on open and back to the launcher on close, Tab is trapped inside the open
- * dialog, and Escape closes it. Unlike the music drawer — a component that mounts and
- * unmounts with its own open state — this popup is a `v-if` block in this same file, so
- * the keydown listener is bound and torn down by watching `isOpen` rather than by a
- * child's lifecycle hooks. Either way the listener lives only while the popup is open.
- */
+async function onTurnstileVerify(token: string) {
+  const success = await setSessionFromTurnstile(token)
+  if (success) {
+    playSuccess()
+  } else {
+    playError()
+    turnstileWidgetRef.value?.reset()
+  }
+}
+
+function onTurnstileExpire() {
+  turnstileWidgetRef.value?.reset()
+}
+
+function onTurnstileError() {
+  turnstileWidgetRef.value?.reset()
+}
+
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 function getFocusable(): HTMLElement[] {
   const root = popupEl.value
   if (!root) return []
-  // The sentinels carry tabindex="0" themselves; they exist to catch a wrap, not to be
-  // wrap targets, so they are filtered back out of the real tab order here.
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
     (el) => !el.classList.contains('focus-sentinel'),
   )
@@ -103,10 +97,6 @@ function focusLast() {
 
 function onPopupKeydown(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
-  // The avatar picker owns Escape while it is on screen (it dismisses itself via
-  // @dismiss). One Escape press must never both dismiss the picker and close the chat,
-  // so the shell stands down for the whole time the picker is shown — not only when it
-  // was opened deliberately, but on the mandatory first-visit pass too.
   if (isPickerShown.value) return
   isOpen.value = false
 }
@@ -115,9 +105,6 @@ watch(isOpen, async (open) => {
   if (open) {
     document.addEventListener('keydown', onPopupKeydown)
     await nextTick()
-    // The picker manages its own focus-on-open (it mounts inside the popup), so the shell
-    // only reaches for focus when the main chat is what came up — otherwise the two would
-    // both grab the first focus and race.
     if (!isPickerShown.value) {
       const first = getFocusable()[0]
       if (first) first.focus()
@@ -125,10 +112,6 @@ watch(isOpen, async (open) => {
     }
   } else {
     document.removeEventListener('keydown', onPopupKeydown)
-    // Return focus to the launcher, but only when it still sits inside the closing popup
-    // — the same guard the mobile force-close above applies, so a close that already
-    // moved focus elsewhere (or that closer, which restores focus itself) is left alone
-    // and nothing gains a ring it didn't have.
     if (popupEl.value?.contains(document.activeElement) === true) launcherEl.value?.focus()
   }
 })
@@ -168,9 +151,6 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
         aria-label="Chat Window with Arya"
         tabindex="-1"
       >
-        <!-- Focus-trap sentinel: a Shift+Tab off the first control lands here and is
-             bounced to the last, keeping Tab inside the open dialog. Paired with the one
-             just before the closing tag. -->
         <span class="focus-sentinel" tabindex="0" @focus="focusLast"></span>
 
         <!-- Header -->
@@ -181,7 +161,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
           @open-avatar-picker="openAvatarPicker"
         />
 
-        <!-- Avatar Picker Overlay (shows when first starting chat or when user wants to change avatar) -->
+        <!-- Avatar Picker Overlay -->
         <ChatAvatarPicker
           v-if="isPickerShown"
           :initial-avatar-id="userAvatarId || 'ironman'"
@@ -189,7 +169,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
           @dismiss="closeAvatarPicker"
         />
 
-        <!-- Main Chat Area (shown after avatar selection) -->
+        <!-- Main Chat Area -->
         <template v-else>
           <!-- Message List -->
           <ChatMessageList
@@ -198,9 +178,37 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
             :user-avatar-id="userAvatarId"
           />
 
-          <!-- Starter prompts, only before the first question -->
+          <!-- Security / Turnstile Verification Bar when session is not yet active -->
+          <div v-if="!isSessionVerified" class="chat-turnstile-box">
+            <div class="chat-turnstile-box__header">
+              <span class="chat-turnstile-box__icon">🛡️</span>
+              <span class="chat-turnstile-box__title">Verifikasi Keamanan Singkat</span>
+            </div>
+            <p class="chat-turnstile-box__desc">
+              Selesaikan verifikasi Cloudflare di bawah ini untuk membuka sesi chat.
+            </p>
+            <div class="chat-turnstile-box__widget">
+              <TurnstileWidget
+                ref="turnstileWidgetRef"
+                action="chat_session"
+                theme="auto"
+                size="flexible"
+                @verify="onTurnstileVerify"
+                @expire="onTurnstileExpire"
+                @error="onTurnstileError"
+              />
+            </div>
+            <p v-if="sessionError" class="chat-turnstile-box__error" role="alert">
+              ⚠️ {{ sessionError }}
+            </p>
+            <p v-else-if="isVerifyingSession" class="chat-turnstile-box__status">
+              ⏳ Memvalidasi sesi chat...
+            </p>
+          </div>
+
+          <!-- Starter prompts, only before first question and once verified -->
           <ChatPromptChips
-            v-if="showPromptChips"
+            v-if="showPromptChips && isSessionVerified"
             :disabled="isLoading"
             @send="sendMessage"
           />
@@ -208,13 +216,13 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
           <!-- Input Bar -->
           <ChatInput
             :is-loading="isLoading"
+            :disabled="!isSessionVerified"
+            :placeholder="isSessionVerified ? 'Type a message...' : 'Verifikasi keamanan di atas untuk chat...'"
             @send="sendMessage"
             @stop="stop"
           />
         </template>
 
-        <!-- Focus-trap sentinel: a Tab off the last control lands here and is bounced
-             back to the first. -->
         <span class="focus-sentinel" tabindex="0" @focus="focusFirst"></span>
       </section>
     </Transition>
@@ -267,9 +275,6 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
   overflow: hidden;
 }
 
-/* Focus-trap sentinels: empty and out of flow, so they never affect the popup's flex
-   layout, and they only ever hold focus for the instant their @focus handler takes to
-   bounce it to the opposite end of the dialog — so no focus ring is ever painted. */
 .focus-sentinel {
   position: absolute;
   width: 0;
@@ -307,6 +312,62 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
   border-radius: 16px;
   box-shadow: 0 10px 36px rgba(0, 0, 0, 0.14);
   overflow: hidden;
+}
+
+/* Turnstile Verification Box inside Chat */
+.chat-turnstile-box {
+  padding: 10px 14px;
+  background: var(--bg-soft, #f8f9fa);
+  border-top: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.chat-turnstile-box__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-turnstile-box__icon {
+  font-size: 0.95rem;
+}
+
+.chat-turnstile-box__title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.chat-turnstile-box__desc {
+  font-size: 0.76rem;
+  color: var(--text-medium);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.chat-turnstile-box__widget {
+  min-height: 65px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.chat-turnstile-box__error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--status-offline, #e53e3e);
+  font-weight: 600;
+}
+
+.chat-turnstile-box__status {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--blue-deep, #3182ce);
+  font-style: italic;
 }
 
 @media (max-width: 480px) {

@@ -7,19 +7,31 @@ Everything here is derived from `src/worker/routes/chat.ts` and
 ## Shape of the whole thing
 
 ```
-Browser ──POST /api/chat──▶ Worker ──POST <PERSONA_API_URL>/api/chat──▶ Backend
-        ◀──── reply ───────        ◀──────── reply ────────────────────
+Browser ──POST /api/chat (with X-Session-Token)──▶ Worker ──POST <PERSONA_API_URL>/api/chat──▶ Backend
+        ◀──── reply ─────────────────────────────        ◀──────── reply ────────────────────
 ```
 
-The browser never talks to the backend. The worker holds the URL and the key,
-calls the backend server-to-server, and passes the answer back. Two consequences
-that save real work:
+The browser never talks to the backend directly. The worker holds the URL and secret key,
+enforces Turnstile session token validation (`X-Session-Token`), calls the backend server-to-server,
+and passes the answer back. Two consequences that save real work:
 
 - **No CORS configuration.** Server-to-server requests aren't subject to CORS, so
   the backend needs no `Access-Control-Allow-*` headers and no preflight
   handling for this client.
-- **The backend URL stays private.** It never appears in the shipped bundle, in
-  network traces, or in devtools.
+- **The backend URL stays private & bot-protected.** It never appears in the shipped bundle, in
+  network traces, or in devtools. Direct bot or Postman hits to `/api/chat` are rejected by the worker.
+
+### Anti-Bot & Session Token Flow
+
+```
+1. Visitor Browser solves Cloudflare Turnstile challenge
+2. Browser sends POST /api/session { turnstileToken }
+   ↳ Worker verifies token via Cloudflare siteverify
+   ↳ Worker generates HMAC-SHA256 signed X-Session-Token
+3. Browser sends POST /api/chat with header `X-Session-Token: <token>`
+   ↳ Worker validates HMAC signature, expiry (24h), and rate limits
+   ↳ Worker proxies clean request to external backend
+```
 
 ## Endpoint
 
