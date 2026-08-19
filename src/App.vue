@@ -6,6 +6,7 @@ import MenuCard from './components/MenuCard.vue'
 import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
 import LatencyIndicator from './components/LatencyIndicator.vue'
 import ThemeToggle from './components/ThemeToggle.vue'
+import SoundToggle from './components/SoundToggle.vue'
 import LazySection from './components/LazySection.vue'
 import IconGameDev from './components/icons/IconGameDev.vue'
 import IconBackend from './components/icons/IconBackend.vue'
@@ -162,6 +163,7 @@ onMounted(() => {
 
   <!-- Floating Widgets -->
   <ThemeToggle />
+  <SoundToggle />
   <ChatContainer />
   <!--
     These two share a rail so they lay each other out. The edge panel collapses to a chip

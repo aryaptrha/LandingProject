@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useTheme } from '../composables/useTheme'
+import { useRetroSound } from '../composables/useRetroSound'
 
 // This control is tri-state — day, night, and "follow system" — not a boolean
 // toggle. `useTheme` already models the third state: an explicit day/night pick
@@ -8,6 +9,7 @@ import { useTheme } from '../composables/useTheme'
 // tracking the OS `prefers-color-scheme`. Before this, that reset was unreachable
 // from the UI, so once a visitor picked a side there was no way back to system.
 const { theme, hasExplicitChoice, setTheme, useSystemTheme } = useTheme()
+const { playThemeDay, playThemeNight, playToggle } = useRetroSound()
 
 type ThemeMode = 'day' | 'night' | 'system'
 
@@ -23,9 +25,16 @@ const mode = computed<ThemeMode>(() => {
 // control in the corner, rather than growing a second floating button or a menu
 // for a cozy portfolio's lone theme switch.
 function cycleMode() {
-  if (mode.value === 'day') setTheme('night')
-  else if (mode.value === 'night') useSystemTheme()
-  else setTheme('day')
+  if (mode.value === 'day') {
+    setTheme('night')
+    playThemeNight()
+  } else if (mode.value === 'night') {
+    useSystemTheme()
+    playToggle()
+  } else {
+    setTheme('day')
+    playThemeDay()
+  }
 }
 
 // The accessible name leads with the *current* mode (what a screen reader hears

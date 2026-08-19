@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useMusicPlayer } from '../../composables/useMusicPlayer'
+import { useRetroSound } from '../../composables/useRetroSound'
 import IconPause from './icons/IconPause.vue'
 import IconPlay from './icons/IconPlay.vue'
 import IconSkipNext from './icons/IconSkipNext.vue'
@@ -20,6 +21,8 @@ const {
   toggleMute,
 } = useMusicPlayer()
 
+const { playBlip, playToggle } = useRetroSound()
+
 const volumePercent = computed(() => Math.round(volume.value * 100))
 
 function onVolumeInput(event: Event) {
@@ -36,7 +39,7 @@ function onVolumeInput(event: Event) {
         :disabled="!hasTracks"
         aria-label="Previous track"
         title="Previous track"
-        @click="previousTrack()"
+        @click="() => { playBlip(); previousTrack(); }"
       >
         <IconSkipPrev class="ctrl__icon" />
       </button>
@@ -52,7 +55,7 @@ function onVolumeInput(event: Event) {
         :disabled="!hasTracks"
         :aria-label="isPlaying ? 'Pause' : 'Play'"
         :title="isPlaying ? 'Pause' : 'Play'"
-        @click="togglePlay()"
+        @click="() => { playBlip(); togglePlay(); }"
       >
         <IconPause v-if="isPlaying" class="ctrl__icon" />
         <IconPlay v-else class="ctrl__icon" />
@@ -64,7 +67,7 @@ function onVolumeInput(event: Event) {
         :disabled="!hasTracks"
         aria-label="Next track"
         title="Next track"
-        @click="nextTrack()"
+        @click="() => { playBlip(); nextTrack(); }"
       >
         <IconSkipNext class="ctrl__icon" />
       </button>
@@ -77,7 +80,7 @@ function onVolumeInput(event: Event) {
         :aria-pressed="isMuted"
         :aria-label="isMuted ? 'Unmute' : 'Mute'"
         :title="isMuted ? 'Unmute' : 'Mute'"
-        @click="toggleMute()"
+        @click="() => { playToggle(); toggleMute(); }"
       >
         <IconVolumeMuted v-if="isMuted" class="ctrl__icon" />
         <IconVolume v-else class="ctrl__icon" />

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { type Component } from 'vue'
+import { useRetroSound } from '../composables/useRetroSound'
 
 defineProps<{
   title: string
@@ -9,6 +10,8 @@ defineProps<{
   link?: string
   disabled?: boolean
 }>()
+
+const { playBlip, playError } = useRetroSound()
 </script>
 
 <template>
@@ -19,6 +22,7 @@ defineProps<{
     :href="link"
     target="_blank"
     rel="noopener noreferrer"
+    @click="playBlip"
   >
     <div class="menu-card__icon">
       <component :is="icon" />
@@ -32,6 +36,7 @@ defineProps<{
     class="menu-card menu-card--disabled"
     :style="{ '--accent': color }"
     aria-disabled="true"
+    @click="playError"
   >
     <div class="menu-card__icon">
       <component :is="icon" />

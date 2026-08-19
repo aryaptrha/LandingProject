@@ -10,6 +10,7 @@ import {
   useGuestbook,
 } from '@/composables/useGuestbook'
 import { useSiteConfig } from '@/composables/useSiteConfig'
+import { useRetroSound } from '@/composables/useRetroSound'
 
 const {
   entries,
@@ -30,6 +31,7 @@ const {
 } = useGuestbook()
 
 const { config } = useSiteConfig()
+const { playPop, playSuccess, playError, playBlip } = useRetroSound()
 
 const draft = ref({ name: '', message: '', avatarId: 'ironman' })
 const justPosted = ref(false)
@@ -110,6 +112,11 @@ function formatPlace(city: string, country: string): string {
   return [city, country].filter((part) => part && part !== 'unknown').join(', ')
 }
 
+function selectAvatar(id: string) {
+  draft.value.avatarId = id
+  playPop()
+}
+
 async function handleSubmit() {
   if (!canSubmit.value) return
 
@@ -124,7 +131,12 @@ async function handleSubmit() {
   turnstileWidgetRef.value?.reset()
   turnstileToken.value = ''
 
-  if (!posted) return
+  if (!posted) {
+    playError()
+    return
+  }
+
+  playSuccess()
 
   // Avatar deliberately kept, so posting twice does not mean picking a hero twice.
   draft.value.name = ''
@@ -200,7 +212,7 @@ onUnmounted(() => {
             :class="{ 'guestbook__avatar--active': draft.avatarId === avatar.id }"
             :aria-pressed="draft.avatarId === avatar.id"
             :title="avatar.name"
-            @click="draft.avatarId = avatar.id"
+            @click="selectAvatar(avatar.id)"
           >
             <AvengerPixelAvatar :avatar-id="avatar.id" :size="28" />
           </button>
@@ -276,7 +288,7 @@ onUnmounted(() => {
       <!-- List -->
       <div v-if="error && !isUnconfigured" class="guestbook__error">
         <p class="guestbook__error-text">{{ error }}</p>
-        <button class="guestbook__retry" type="button" @click="refresh">Coba lagi ⟳</button>
+        <button class="guestbook__retry" type="button" @click="() => { playBlip(); refresh(); }">Coba lagi ⟳</button>
       </div>
 
       <div v-else-if="isLoading && !entries.length" class="guestbook__skeleton">
@@ -317,7 +329,7 @@ onUnmounted(() => {
         class="guestbook__more"
         type="button"
         :disabled="isLoadingMore"
-        @click="loadMore"
+        @click="() => { playBlip(); loadMore(); }"
       >
         {{ isLoadingMore ? 'Memuat...' : 'Muat lebih banyak' }}
       </button>

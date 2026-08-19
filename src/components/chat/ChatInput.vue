@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRetroSound } from '../../composables/useRetroSound'
 
 const props = defineProps<{
   isLoading: boolean
@@ -14,11 +15,14 @@ const emit = defineEmits<{
   (e: 'stop'): void
 }>()
 
+const { playBlip, playToggle } = useRetroSound()
+
 const inputText = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
 function handleSend() {
   if (!inputText.value.trim() || props.isLoading) return
+  playBlip()
   emit('send', inputText.value)
   inputText.value = ''
   if (textareaRef.value) {
@@ -32,6 +36,7 @@ function handleSend() {
 // predictable target.
 function handlePrimaryAction() {
   if (props.isLoading) {
+    playToggle()
     emit('stop')
     return
   }

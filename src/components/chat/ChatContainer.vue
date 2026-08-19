@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useChat } from '../../composables/useChat'
 import { useMobilePanel } from '../../composables/useMobilePanels'
+import { useRetroSound } from '../../composables/useRetroSound'
 import AryaPixelFace from './AryaPixelFace.vue'
 import ChatHeader from './ChatHeader.vue'
 import ChatMessageList from './ChatMessageList.vue'
@@ -21,6 +22,8 @@ const {
   openAvatarPicker,
   closeAvatarPicker,
 } = useChat()
+
+const { playPop, playToggle } = useRetroSound()
 
 const isOpen = ref(false)
 
@@ -58,8 +61,12 @@ const isPickerShown = computed(() => isAvatarPickerOpen.value || !userAvatarId.v
 
 function toggleChat() {
   isOpen.value = !isOpen.value
-  // Only on the way open. Closing takes space from nobody.
-  if (isOpen.value) claim()
+  if (isOpen.value) {
+    playPop()
+    claim()
+  } else {
+    playToggle()
+  }
 }
 
 /*

@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AvengerPixelAvatar from './AvengerPixelAvatar.vue'
 import DoctorStrangePortalEffect from './DoctorStrangePortalEffect.vue'
 import { AVENGERS_AVATARS, type AvengerAvatarInfo } from './avengerAvatars'
+import { useRetroSound } from '../../composables/useRetroSound'
 
 const props = defineProps<{
   initialAvatarId?: string
@@ -12,6 +13,8 @@ const emit = defineEmits<{
   (e: 'select', avatarId: string): void
   (e: 'dismiss'): void
 }>()
+
+const { playPop, playSuccess } = useRetroSound()
 
 const selectedId = ref<string>(props.initialAvatarId || 'ironman')
 const showDoctorStrangePortal = ref(false)
@@ -50,6 +53,7 @@ function focusOption(id: string) {
 
 function handleSelect(avatar: AvengerAvatarInfo) {
   selectedId.value = avatar.id
+  playPop()
   if (avatar.id === 'drstrange') {
     const drStrangeEl = optionRefs.value['drstrange']
     const overlayEl = overlayRef.value
@@ -128,6 +132,7 @@ function onKeydown(event: KeyboardEvent) {
 
 function handleConfirm() {
   if (selectedId.value) {
+    playSuccess()
     emit('select', selectedId.value)
   }
 }
