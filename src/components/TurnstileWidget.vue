@@ -48,15 +48,15 @@ const containerRef = ref<HTMLElement | null>(null)
 const widgetId = ref<string | null>(null)
 const currentToken = ref<string>('')
 
-// Fallback to Cloudflare's always-passing test sitekey if none is provided in development
+// Default to aryaptrha.fun production sitekey if env is not injected during CI/CD build
+const DEFAULT_SITE_KEY = '0x4AAAAAAETgndb2OYFfuZQc'
 const effectiveSiteKey = ref<string>('')
 
 function updateEffectiveKey() {
   effectiveSiteKey.value =
     props.siteKey ||
     import.meta.env.VITE_TURNSTILE_SITE_KEY ||
-    // Cloudflare dummy test key (Always passes):
-    '1x00000000000000000000AA'
+    DEFAULT_SITE_KEY
 }
 
 function loadScript(): Promise<void> {
