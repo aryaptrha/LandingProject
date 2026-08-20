@@ -191,6 +191,69 @@
   transition: transform var(--motion-fast) steps(3, jump-none);
 }
 
+/* --- Theme reveal ------------------------------------------------------- */
+
+/* Pseudo-elements for a view transition are attached to the document element,
+   so these rules cannot live in a scoped SFC block — this file is the only
+   place they can go. `src/utils/themeTransition.ts` drives the clip-path.
+
+   The attribute selector matters: it limits these overrides to the theme
+   reveal, leaving any other view transition the browser's default cross-fade. */
+
+/* Both snapshots are opaque and fully cover the viewport, so the default
+   cross-fade would blend two complete palettes into a washed-out third one for
+   the length of the transition. Switching it off leaves the outgoing palette
+   sitting still underneath while the incoming one is uncovered by the circle —
+   the stacked-layers arrangement the crossfade-morph rule asks for, where the
+   only animated property is the boundary between the two. */
+html[data-theme-reveal]::view-transition-image-pair(root) {
+  isolation: auto;
+}
+
+html[data-theme-reveal]::view-transition-old(root),
+html[data-theme-reveal]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* The incoming palette is clipped on top; the outgoing one is the backdrop. */
+html[data-theme-reveal]::view-transition-old(root) {
+  z-index: 0;
+}
+
+html[data-theme-reveal]::view-transition-new(root) {
+  z-index: 1;
+}
+
+/* Both snapshots are complete states, and the reveal is the only thing allowed
+   to move between them — the crossfade-morph rule's central constraint. Two
+   things in this project would otherwise animate *inside* the new state while it
+   is being uncovered, because `::view-transition-new(root)` is a live rendering
+   rather than a frozen bitmap:
+
+   `body` carries a background-colour transition (base.css) as the fallback for
+   browsers without view transitions. Left running, the first 180ms of the reveal
+   would uncover a background still interpolating toward the incoming palette —
+   a colour caught between two themes, which is the one thing this whole approach
+   exists to avoid. */
+html[data-theme-reveal] body {
+  transition: none;
+}
+
+/* And any entrance utility on an element that mounts mid-reveal would play
+   against it. In practice that is the toggle's own icon: each mode is a separate
+   <svg>, so switching replaces the element and `m-fade` starts it at
+   `opacity: 0`. Since the button sits at the circle's origin it is uncovered on
+   the first frame, so the icon would read as blinking out and easing back in —
+   a flinch in the one element the rule requires to hold still. Inside the reveal
+   an incoming element should simply be there, in the new palette. */
+html[data-theme-reveal] .m-fade,
+html[data-theme-reveal] .m-rise,
+html[data-theme-reveal] .m-pop,
+html[data-theme-reveal] .m-cascade > * {
+  animation: none;
+}
+
 /* --- Reduced motion ----------------------------------------------------- */
 
 /* base.css already collapses every duration globally. This block is the

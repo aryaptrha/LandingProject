@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useTheme } from '../composables/useTheme'
 import { useRetroSound } from '../composables/useRetroSound'
+import { originOf, runThemeTransition } from '../utils/themeTransition'
 
 // This control is tri-state — day, night, and "follow system" — not a boolean
 // toggle. `useTheme` already models the third state: an explicit day/night pick
@@ -10,6 +11,9 @@ import { useRetroSound } from '../composables/useRetroSound'
 // from the UI, so once a visitor picked a side there was no way back to system.
 const { theme, hasExplicitChoice, setTheme, useSystemTheme } = useTheme()
 const { playThemeDay, playThemeNight, playToggle } = useRetroSound()
+
+// The reveal grows from this button, so it has to be measurable at press time.
+const toggleRef = ref<HTMLButtonElement | null>(null)
 
 type ThemeMode = 'day' | 'night' | 'system'
 
@@ -35,6 +39,14 @@ function cycleMode() {
     setTheme('day')
     playThemeDay()
   }
+}
+
+// The palette change is wrapped rather than folded into `cycleMode`, which stays
+// a plain state transition that any caller can use. `runThemeTransition` decides
+// on its own whether the change is worth animating, so this is the only place
+// that needs to know where the press happened.
+function onActivate() {
+  runThemeTransition(originOf(toggleRef.value), cycleMode)
 }
 
 // The accessible name leads with the *current* mode (what a screen reader hears
@@ -67,11 +79,12 @@ const stateText = computed(() => {
 
 <template>
   <button
+    ref="toggleRef"
     class="theme-toggle"
     type="button"
     :aria-label="label"
     :title="stateText"
-    @click="cycleMode"
+    @click="onActivate"
   >
     <!-- Hand-authored pixel art on a 16 grid, one scale, no anti-aliasing.
          Each state is a distinct silhouette (radial disc / lopsided crescent /
