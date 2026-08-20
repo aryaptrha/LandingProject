@@ -150,7 +150,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <div ref="overlayRef" class="avatar-picker-overlay" role="dialog" aria-label="Pilih Avatar Marvel Avengers">
+  <div ref="overlayRef" class="avatar-picker-overlay m-pop" role="dialog" aria-label="Pilih Avatar Marvel Avengers">
     <!-- Doctor Strange Easter Egg Sling Ring Portal Animation -->
     <DoctorStrangePortalEffect
       v-if="showDoctorStrangePortal"
@@ -226,18 +226,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   backdrop-filter: blur(8px);
   padding: 12px 14px;
   overflow: hidden;
-  animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 
 .avatar-picker-card {

@@ -65,7 +65,7 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="message-item"
+    class="message-item m-rise"
     :class="{
       'message-item--user': message.role === 'user',
       'message-item--assistant': message.role === 'assistant',
@@ -115,7 +115,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Awkward notification for free tier delay after 2 minutes -->
-          <div v-if="message.isSlow" class="awkward-notice" role="alert">
+          <div v-if="message.isSlow" class="awkward-notice m-rise" role="alert">
             <span class="awkward-notice__emoji">😅</span>
             <span class="awkward-notice__text">Maaf yah saya pengguna free tier jadi ada aja masalah begini</span>
           </div>
@@ -159,18 +159,6 @@ onUnmounted(() => {
   gap: var(--space-sm);
   max-width: 85%;
   margin-bottom: var(--space-md);
-  animation: fadeIn 0.15s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .message-item--user {
@@ -435,7 +423,6 @@ onUnmounted(() => {
   border-radius: 10px;
   font-size: 0.8rem;
   color: var(--text-dark, #2F2F2F);
-  animation: fadeIn 0.2s ease-out;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
