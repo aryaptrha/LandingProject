@@ -22,7 +22,7 @@ const stateText = computed(() => (isSfxEnabled.value ? 'Sound ON' : 'Sound OFF')
     <!-- Pixel art speaker icon on a 16x16 grid -->
     <svg
       v-if="isSfxEnabled"
-      class="sound-toggle__icon pixel-art"
+      class="sound-toggle__icon pixel-art m-fade"
       viewBox="0 0 16 16"
       width="24"
       height="24"
@@ -45,7 +45,7 @@ const stateText = computed(() => (isSfxEnabled.value ? 'Sound ON' : 'Sound OFF')
     <!-- Muted Speaker Icon -->
     <svg
       v-else
-      class="sound-toggle__icon sound-toggle__icon--muted pixel-art"
+      class="sound-toggle__icon sound-toggle__icon--muted pixel-art m-fade"
       viewBox="0 0 16 16"
       width="24"
       height="24"
@@ -90,9 +90,9 @@ const stateText = computed(() => (isSfxEnabled.value ? 'Sound ON' : 'Sound OFF')
   border-radius: var(--radius-btn);
   cursor: pointer;
   transition:
-    transform 0.18s ease,
-    background-color 0.18s ease,
-    border-color 0.18s ease;
+    transform var(--motion-fast) var(--ease-flat),
+    background-color var(--motion-fast) var(--ease-flat),
+    border-color var(--motion-fast) var(--ease-flat);
 }
 
 .sound-toggle:hover {
@@ -110,6 +110,13 @@ const stateText = computed(() => (isSfxEnabled.value ? 'Sound ON' : 'Sound OFF')
   outline-offset: 2px;
 }
 
+/*
+ * Each state is a separate <svg>, so changing mode replaces the element rather
+ * than mutating it, and the `m-fade` utility on the incoming one runs by itself
+ * — no <Transition> and no keyed re-render needed. Opacity is the only property
+ * involved on purpose: fading a pixel sprite is safe, where scaling or sub-pixel
+ * travel would put its edges between device pixels and soften them.
+ */
 .sound-toggle__icon {
   display: block;
 }

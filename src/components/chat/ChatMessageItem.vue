@@ -381,12 +381,22 @@ onUnmounted(() => {
   font-style: italic;
 }
 
+/*
+ * Blink, not bounce. `design.md` rules out bouncing outright, and a stepped
+ * on/off blink is also the more honest gesture for this project: it is what a
+ * sprite would do, where a translateY hop is what a web loader does. `steps(1,
+ * end)` is what makes it a hard switch instead of a fade — no interpolation
+ * between the two opacities at all.
+ *
+ * The three dots keep their staggered delays below, so they blink in sequence
+ * and the group still reads as "working".
+ */
 .typing-indicator .dot {
   width: 6px;
   height: 6px;
   background: var(--lavender-main);
   border-radius: 50%;
-  animation: typingBounce 1.2s infinite ease-in-out;
+  animation: typingBlink 1.2s steps(1, end) infinite;
 }
 
 .typing-indicator .dot:nth-child(2) {
@@ -399,12 +409,13 @@ onUnmounted(() => {
   background: var(--green-main);
 }
 
-@keyframes typingBounce {
-  0%, 80%, 100% {
-    transform: translateY(0);
+@keyframes typingBlink {
+  0%,
+  100% {
+    opacity: 0.3;
   }
   40% {
-    transform: translateY(-5px);
+    opacity: 1;
   }
 }
 

@@ -110,7 +110,7 @@ onMounted(() => {
     <!-- Main Projects View -->
     <main class="landing__content">
       <section class="view-section">
-        <div class="landing__grid" role="list">
+        <div class="landing__grid m-cascade" role="list">
           <div
             v-for="(item, index) in menuItems"
             :key="index"
@@ -162,8 +162,8 @@ onMounted(() => {
   </div>
 
   <!-- Floating Widgets -->
-  <ThemeToggle />
-  <SoundToggle />
+  <ThemeToggle class="m-dock" />
+  <SoundToggle class="m-dock" />
   <ChatContainer />
   <!--
     These two share a rail so they lay each other out. The edge panel collapses to a chip
@@ -181,7 +181,7 @@ onMounted(() => {
     the swap opened up — none of which the widget could do from inside itself, having no
     say over its siblings or over the rail's own geometry.
   -->
-  <div class="widget-rail" v-auto-animate="railMotion">
+  <div class="widget-rail m-dock" v-auto-animate="railMotion">
     <LatencyIndicator />
     <CloudflareEdgeStatus />
   </div>
@@ -220,6 +220,13 @@ onMounted(() => {
   pointer-events: none;
 }
 
+/*
+ * The header is deliberately the one thing on this page that does not animate.
+ * `index.html` ships it as static markup so it can paint before any JS runs, and
+ * Vue then replaces that markup with an identical render. Fading it in would mean
+ * fading in something the visitor is already looking at; lifting it into place
+ * would mean watching it jump. The grid below owns the page's arrival instead.
+ */
 .landing__header {
   text-align: center;
   margin-bottom: var(--space-2xl);
@@ -246,19 +253,16 @@ onMounted(() => {
   width: 100%;
 }
 
-.view-section {
-  animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
+/*
+ * `m-cascade` (motion.css) fades and lifts each card in turn, 40ms apart. It is
+ * on the grid rather than on MenuCard so the stagger belongs to the group: the
+ * cards are what tells the visitor the page has arrived, and five of them
+ * appearing at once is a flash where five in sequence is a gesture. Total run is
+ * 200ms + 4x40ms, comfortably inside the ~500ms where a stagger stops reading as
+ * one movement. Children are auto-indexed by `:nth-child`, so adding a card
+ * needs no change here — but past eight they share the last delay slot rather
+ * than trailing further.
+ */
 .landing__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

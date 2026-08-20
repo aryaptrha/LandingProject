@@ -1,0 +1,208 @@
+/* Motion layer.
+ *
+ * `design.md` is the authority here, not this file: 150-200ms, fade / slight
+ * lift / scale 1.00-1.02 only, and explicitly *no* bounce, elastic, spin, or
+ * parallax. Everything below is a token or a keyframe that stays inside that
+ * envelope, so components can animate by adding a class instead of inventing
+ * their own timing.
+ *
+ * Two rules that are easy to break by accident:
+ *   1. Animate transforms and opacity. Never width/height/top/left — they lay
+ *      out on every frame. Bars fill with scaleX, not width.
+ *   2. Pixel art moves in whole pixels. Fractional translation or scale lands
+ *      a 32x32 sprite off-grid, which is the anti-aliasing `design.md` forbids.
+ *      That is what the `steps()` timing on `.m-sprite` is for.
+ *
+ * Entrance keyframes all carry `animation-fill-mode: backwards`, which is doing
+ * two jobs. It holds the from-state through the stagger delay, so a cascading
+ * child waits at opacity 0 instead of flashing. And it *releases* the element
+ * once the animation ends, back to its natural styles — an entrance must not
+ * leave a permanent `transform: translateY(0)` behind, because a transform, even
+ * an identity one, makes the element a containing block and a stacking context
+ * for everything inside it. `both` would do that; `backwards` does not.
+ *
+ * The from-state therefore lives entirely inside the animation. If this
+ * stylesheet ever fails to load, content renders plainly rather than invisibly.
+ */
+
+:root {
+  /* Durations. `--motion-base` is the design.md ceiling; nothing should exceed
+     it except a group cascade, whose *total* is duration + last delay. */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+
+  /* Cascade step. Capped so a group of 5 finishes in 200 + 4x40 = 360ms —
+     past ~500ms a stagger stops reading as one gesture and starts reading as
+     a queue. Raise the step only if you also shrink the group. */
+  --motion-stagger: 40ms;
+
+  /* Eases. Both are monotonic: they approach their target and stop, never
+     overshoot, which is how "no bouncing / no elastic" is enforced in the
+     curve itself rather than by convention.
+       --ease-settle: fast start, long settle (arrivals, reveals).
+       --ease-flat:   symmetric (state flips, hover, colour). */
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-flat: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Amplitudes. One spacing unit of travel, the design.md 2px hover lift, and
+     a 2% scale — the exact 1.00-1.02 range the style guide names. */
+  --motion-rise: var(--space-sm);
+  --motion-lift: -2px;
+  --motion-scale: 1.02;
+}
+
+/* --- Keyframes ----------------------------------------------------------- */
+
+@keyframes m-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Fade + slight lift. The page's default arrival. */
+@keyframes m-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-rise));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade + settle from 0.98. Same 2% delta as the hover scale, inbound. Used for
+   things that appear in place (panels, popovers) rather than travelling. */
+@keyframes m-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Idle liveness for status dots. Opacity only — a pulsing ring or shadow would
+   read as the glow `design.md` rules out. Low amplitude and slow on purpose:
+   the dot is ambient, and it is never the only signal for a state (the label
+   next to it carries that). */
+@keyframes m-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Pixel blink. Hard on/off with no interpolation, which is what a sprite would
+   actually do. Replaces the translateY bounce a typing indicator usually gets. */
+@keyframes m-blink {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+/* --- Entrance utilities -------------------------------------------------- */
+
+.m-fade {
+  animation: m-fade var(--motion-base) var(--ease-flat) backwards;
+}
+
+.m-rise {
+  animation: m-rise var(--motion-base) var(--ease-settle) backwards;
+}
+
+.m-pop {
+  animation: m-pop var(--motion-base) var(--ease-settle) backwards;
+}
+
+/* Group cascade. Children are auto-indexed, so markup needs no extra
+   attributes; an inline `style="--i: n"` overrides the index when the DOM order
+   is not the order you want to animate in (v-for lists set it explicitly). */
+.m-cascade > * {
+  animation: m-rise var(--motion-base) var(--ease-settle) backwards;
+  animation-delay: calc(var(--i, 0) * var(--motion-stagger));
+}
+
+.m-cascade > *:nth-child(1) {
+  --i: 0;
+}
+.m-cascade > *:nth-child(2) {
+  --i: 1;
+}
+.m-cascade > *:nth-child(3) {
+  --i: 2;
+}
+.m-cascade > *:nth-child(4) {
+  --i: 3;
+}
+.m-cascade > *:nth-child(5) {
+  --i: 4;
+}
+.m-cascade > *:nth-child(6) {
+  --i: 5;
+}
+.m-cascade > *:nth-child(7) {
+  --i: 6;
+}
+.m-cascade > *:nth-child(8) {
+  --i: 7;
+}
+
+/* Anything past the 8th shares the last slot rather than trailing off. */
+.m-cascade > *:nth-child(n + 9) {
+  --i: 8;
+}
+
+/* Fixed widgets arrive after the content they float over, so the page reads
+   content-first. One cascade length of delay, not a new duration. */
+.m-dock {
+  animation: m-rise var(--motion-base) var(--ease-settle) backwards;
+  animation-delay: calc(var(--motion-stagger) * 4);
+}
+
+/* --- Loops -------------------------------------------------------------- */
+
+.m-breathe {
+  animation: m-breathe 2.4s var(--ease-flat) infinite;
+}
+
+.m-blink {
+  animation: m-blink 1.2s steps(1, end) infinite;
+}
+
+/* --- Pixel-art micro-motion --------------------------------------------- */
+
+/* Whole-pixel hop for 32x32 sprites. `steps(3, jump-none)` quantises the 2px
+   travel to 0 / -1px / -2px, so the sprite never renders between pixels. It is
+   a transition rather than an animation so it reverses on hover-out. */
+.m-sprite {
+  transition: transform var(--motion-fast) steps(3, jump-none);
+}
+
+/* --- Reduced motion ----------------------------------------------------- */
+
+/* base.css already collapses every duration globally. This block is the
+   explicit version for the loops above: they are the only motion here that
+   would otherwise keep running forever, so they get switched off by name. */
+@media (prefers-reduced-motion: reduce) {
+  .m-breathe,
+  .m-blink {
+    animation: none;
+  }
+
+  .m-sprite {
+    transition: none;
+  }
+}

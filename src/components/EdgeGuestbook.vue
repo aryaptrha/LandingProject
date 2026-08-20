@@ -11,6 +11,7 @@ import {
 } from '@/composables/useGuestbook'
 import { useSiteConfig } from '@/composables/useSiteConfig'
 import { useRetroSound } from '@/composables/useRetroSound'
+import { useReveal } from '@/composables/useReveal'
 
 const {
   entries,
@@ -29,6 +30,10 @@ const {
   submit,
   refresh,
 } = useGuestbook()
+
+// Fades and lifts in the first time it is scrolled to. LazySection mounts this
+// ~250px early, so without the scroll trigger the entrance would play off-screen.
+const { target: panel } = useReveal()
 
 const { config } = useSiteConfig()
 const { playPop, playSuccess, playError, playBlip } = useRetroSound()
@@ -158,7 +163,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="guestbook" aria-labelledby="guestbook-title">
+  <section ref="panel" class="guestbook" aria-labelledby="guestbook-title">
     <header class="guestbook__header">
       <div class="guestbook__heading">
         <h2 id="guestbook-title" class="guestbook__title">📖 Edge Guestbook</h2>
@@ -305,7 +310,13 @@ onUnmounted(() => {
         Belum ada pesan. Jadi yang pertama? ✨
       </p>
 
-      <ul v-else class="guestbook__list">
+      <!--
+        Entries cascade in 40ms apart. Only elements the browser has just created
+        animate, so a freshly posted message and each appended page animate on
+        arrival while the entries already on screen sit still — which is what makes
+        "load more" read as an addition rather than as the list redrawing itself.
+      -->
+      <ul v-else class="guestbook__list m-cascade">
         <li v-for="entry in entries" :key="entry.id" class="guestbook__entry">
           <AvengerPixelAvatar :avatar-id="entry.avatarId" :size="32" />
           <div class="guestbook__entry-body">
@@ -636,6 +647,21 @@ onUnmounted(() => {
   font-weight: 600;
   color: var(--text-dark);
   cursor: pointer;
+  transition:
+    transform var(--motion-fast) var(--ease-flat),
+    background-color var(--motion-fast) var(--ease-flat);
+}
+
+/* design.md's button states: hover darkens the fill and lifts 2px, pressing puts
+   it back down. It had neither, so it was the one button on the page that gave
+   no feedback for being pressed. */
+.guestbook__more:hover:not(:disabled) {
+  background: var(--blue-main);
+  transform: translateY(-2px);
+}
+
+.guestbook__more:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .guestbook__more:disabled {

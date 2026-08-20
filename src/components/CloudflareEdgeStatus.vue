@@ -253,8 +253,12 @@ const latencyStatusLabel = computed(() =>
     <div v-if="isMobile" class="edge-widget__latency">
       <div class="edge-widget__latency-header">
         <span class="edge-widget__latency-title">Latency</span>
+        <!-- Same ambient pulse as the desktop latency meter, and for the same
+             reasons: opacity only, only while a reading exists, and never the
+             sole carrier of the state (the status word below it is). -->
         <span
           class="edge-widget__latency-dot"
+          :class="{ 'm-breathe': latency && !latencyError }"
           :style="{ background: latencyStatusColor }"
         />
       </div>
@@ -557,7 +561,7 @@ const latencyStatusLabel = computed(() =>
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  transition: background 0.3s ease;
+  transition: background var(--motion-base) var(--ease-flat);
 }
 
 .edge-widget__latency-data {
@@ -571,6 +575,9 @@ const latencyStatusLabel = computed(() =>
   font-size: 1rem;
   font-weight: 700;
   color: var(--text-dark);
+  /* A polled figure in a narrow fixed panel: proportional digits would resize
+     this line every 20 seconds and shift the status word beside it. */
+  font-variant-numeric: tabular-nums;
 }
 
 .edge-widget__latency-status {

@@ -24,7 +24,7 @@ const { playBlip, playError } = useRetroSound()
     rel="noopener noreferrer"
     @click="playBlip"
   >
-    <div class="menu-card__icon">
+    <div class="menu-card__icon m-sprite">
       <component :is="icon" />
     </div>
     <h3 class="menu-card__title">{{ title }}</h3>
@@ -38,7 +38,7 @@ const { playBlip, playError } = useRetroSound()
     aria-disabled="true"
     @click="playError"
   >
-    <div class="menu-card__icon">
+    <div class="menu-card__icon m-sprite">
       <component :is="icon" />
     </div>
     <h3 class="menu-card__title">{{ title }}</h3>
@@ -62,8 +62,8 @@ const { playBlip, playError } = useRetroSound()
   gap: var(--space-md);
   cursor: pointer;
   transition:
-    transform 200ms ease,
-    box-shadow 200ms ease;
+    transform var(--motion-base) var(--ease-flat),
+    box-shadow var(--motion-base) var(--ease-flat);
   min-height: 180px;
   text-decoration: none;
   color: inherit;
@@ -99,6 +99,19 @@ const { playBlip, playError } = useRetroSound()
   transform: none;
 }
 
+/*
+ * The icon lifts 2px inside a card that is itself lifting 2px, so hovering reads
+ * as the sprite reacting rather than the card merely moving. `m-sprite`
+ * (motion.css) supplies the timing: `steps(3, jump-none)`, which quantises those
+ * 2px to 0 / -1 / -2. That matters because these icons are hand-authored pixel
+ * art on a 32 grid — a smooth 0.6px offset would land the whole sprite between
+ * device pixels and soften every edge, which is exactly the anti-aliasing
+ * `design.md` forbids. Stepping keeps it on the grid, and reads as a sprite
+ * animating in a game would.
+ *
+ * Focus gets the same treatment as hover: keyboard users should see the card
+ * respond, not just receive an outline.
+ */
 .menu-card__icon {
   width: 48px;
   height: 48px;
@@ -107,6 +120,21 @@ const { playBlip, playError } = useRetroSound()
   justify-content: center;
   background: var(--accent, var(--blue-light));
   border-radius: var(--radius-btn);
+}
+
+.menu-card:hover .menu-card__icon,
+.menu-card:focus-visible .menu-card__icon {
+  transform: translateY(-2px);
+}
+
+/* Pressing puts both the card and its sprite back down together. */
+.menu-card:active .menu-card__icon {
+  transform: translateY(0);
+}
+
+.menu-card--disabled:hover .menu-card__icon,
+.menu-card--disabled:focus-visible .menu-card__icon {
+  transform: none;
 }
 
 .menu-card__title {

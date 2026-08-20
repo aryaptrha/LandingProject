@@ -20,7 +20,13 @@ const prompts = [
 <template>
   <div class="prompt-chips">
     <p class="prompt-chips__hint">Bingung mau nanya apa? Coba ini:</p>
-    <div class="prompt-chips__row">
+    <!--
+      The chips cascade in rather than appearing as a block. They show up in the
+      middle of a conversation the visitor is already reading, so arriving one
+      after another reads as a suggestion being offered; arriving all at once
+      reads as the panel having jumped.
+    -->
+    <div class="prompt-chips__row m-cascade">
       <button
         v-for="p in prompts"
         :key="p.label"
@@ -70,9 +76,9 @@ const prompts = [
   border-radius: var(--radius-badge);
   cursor: pointer;
   transition:
-    transform 0.18s ease,
-    background-color 0.18s ease,
-    border-color 0.18s ease;
+    transform var(--motion-fast) var(--ease-flat),
+    background-color var(--motion-fast) var(--ease-flat),
+    border-color var(--motion-fast) var(--ease-flat);
 }
 
 .prompt-chip:hover:not(:disabled) {

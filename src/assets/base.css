@@ -234,6 +234,14 @@ body {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    /* Collapsed alongside the duration, and not merely for symmetry with
+       `transition-delay` below. A staggered entrance holds its from-state
+       through its delay via `animation-fill-mode: backwards` (see motion.css),
+       so a delay left standing here would keep a collapsed animation's element
+       invisible for the length of that delay — reduced motion would turn a
+       cascade into content that arrives late instead of content that arrives
+       at once. */
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
     transition-delay: 0ms !important;
     scroll-behavior: auto !important;

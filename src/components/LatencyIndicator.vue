@@ -76,8 +76,17 @@ const sparkPoints = computed(() => {
   <div class="latency" role="status" :aria-label="ariaLabel">
     <div class="latency__header">
       <span class="latency__title">Latency</span>
+      <!--
+        The dot breathes only while there is a live reading. Opacity is the only
+        thing moving: a pulsing ring or shadow would be the glow design.md rules
+        out, and it stays a slow, low-amplitude loop so it reads as ambient
+        rather than as an alert. It is never the only signal for the state — the
+        status word below it and the region's aria-label both carry that — so
+        switching it off under prefers-reduced-motion loses no information.
+      -->
       <span
         class="latency__dot"
+        :class="{ 'm-breathe': latency && !error }"
         :style="{ background: statusColor }"
       />
     </div>
@@ -95,7 +104,7 @@ const sparkPoints = computed(() => {
     </div>
 
     <!-- Data -->
-    <div v-else-if="latency" class="latency__body">
+    <div v-else-if="latency" class="latency__body m-fade">
       <span class="latency__ms">{{ latency.ms }} ms</span>
       <span
         class="latency__status"
@@ -179,7 +188,7 @@ const sparkPoints = computed(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  transition: background 0.3s ease;
+  transition: background var(--motion-base) var(--ease-flat);
 }
 
 .latency__body {
@@ -194,13 +203,26 @@ const sparkPoints = computed(() => {
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--text-dark);
+  /* Proportional digits have different widths, so a poll going from 8 ms to
+     112 ms resizes this line and nudges the sparkline under it. Tabular figures
+     make every reading the same width, which is what keeps a value that updates
+     on a timer from looking like it is twitching. */
+  font-variant-numeric: tabular-nums;
 }
+
+/*
+ * Deliberately *not* counted up, unlike the totals in the insights panel. This
+ * widget's root is role="status" — a live region — so the number is announced
+ * whenever its text changes. Tweening it would change that text a dozen times
+ * per reading and hand a screen reader a dozen announcements for one
+ * measurement. The value snaps; the dot beside it carries the liveness instead.
+ */
 
 .latency__status {
   font-family: 'Pixelify Sans', monospace;
   font-size: 0.7rem;
   font-weight: 600;
-  transition: color 0.3s ease;
+  transition: color var(--motion-base) var(--ease-flat);
 }
 
 /*

@@ -124,7 +124,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
     <!-- Floating Launcher Button -->
     <button
       ref="launcherEl"
-      class="chat-launcher"
+      class="chat-launcher m-dock"
       :class="{ 'chat-launcher--active': isOpen }"
       @click="toggleChat"
       type="button"
@@ -137,7 +137,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
         <AryaPixelFace :size="22" />
       </div>
       <span class="chat-launcher__label">Chat Arya</span>
-      <span class="chat-launcher__dot"></span>
+      <!-- Reads as "Arya is around". Breathing makes that claim continuously
+           rather than only at page load; opacity only, so it never becomes the
+           glow design.md rules out. -->
+      <span class="chat-launcher__dot m-breathe"></span>
     </button>
 
     <!-- Floating Chat Window -->
@@ -251,7 +254,16 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
   border-radius: 30px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
   cursor: pointer;
-  transition: all 0.2s ease;
+  /* Was `all`, which also transitioned backdrop-filter and box-shadow spread on a
+     glass element — expensive, and it made the hover feel soft. Only the three
+     properties that actually change on hover are listed now. `m-dock` in the
+     class list handles the arrival: the launcher is itself `position: fixed`, so
+     animating its own transform is safe, where animating a wrapper around it
+     would have made that wrapper the containing block for a fixed child. */
+  transition:
+    transform var(--motion-fast) var(--ease-flat),
+    box-shadow var(--motion-fast) var(--ease-flat),
+    border-color var(--motion-fast) var(--ease-flat);
 }
 
 .chat-launcher:hover {
@@ -385,15 +397,23 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
   }
 }
 
-/* Animations */
+/*
+ * Animations. Brought inside the design.md envelope: 250ms -> 200ms, and the 4%
+ * scale drop halved to the 1.00-1.02 range the style guide actually names. The
+ * 12px rise became one spacing unit. `all` became the two properties that
+ * change, which matters more here than elsewhere — this panel carries a
+ * backdrop-filter, and `all` put that filter on the transition list too.
+ */
 .chat-popup-anim-enter-active,
 .chat-popup-anim-leave-active {
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity var(--motion-base) var(--ease-settle),
+    transform var(--motion-base) var(--ease-settle);
 }
 
 .chat-popup-anim-enter-from,
 .chat-popup-anim-leave-to {
   opacity: 0;
-  transform: translateY(12px) scale(0.96);
+  transform: translateY(var(--motion-rise)) scale(0.98);
 }
 </style>

@@ -853,9 +853,19 @@ onUnmounted(() => {
   max-width: 1100px;
   margin: var(--space-2xl) auto;
   font-family: 'Nunito', sans-serif;
+  /*
+   * Same fade-and-lift as `useReveal`, but kept local on purpose: the observer
+   * below is doing two jobs at once — a one-shot `revealed` flag and a
+   * continuous `inView` flag that starts and stops the canvas loop. Swapping in
+   * the composable would mean a second observer on the same element to get the
+   * one behaviour it covers. Timing comes from the shared tokens so the two
+   * still move identically; only the plumbing differs.
+   */
   opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 0.22s ease, transform 0.22s ease;
+  transform: translateY(var(--motion-rise));
+  transition:
+    opacity var(--motion-base) var(--ease-settle),
+    transform var(--motion-base) var(--ease-settle);
 }
 
 .edge-tech-viz--revealed {

@@ -1,17 +1,38 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useInsights } from '@/composables/useInsights'
+import { useCountUp } from '@/composables/useCountUp'
+import { useReveal } from '@/composables/useReveal'
 
 const { data, isLoading, isDisabled, error, refresh } = useInsights()
 
 const numberFormat = new Intl.NumberFormat('id-ID')
 
+// The panel sits below the fold, so it fades and lifts into place the first time
+// it is scrolled to rather than at mount — LazySection renders it ~250px early,
+// which would otherwise spend the entrance off-screen where nobody sees it.
+const { target: panel } = useReveal()
+
+/*
+ * Each total settles into its value instead of appearing at it. The counters read
+ * from `data` through their own computeds because useCountUp tweens a number, not
+ * a formatted string: formatting has to happen after the tween, or the thousands
+ * separator would be applied to an intermediate frame.
+ *
+ * Safe to animate here, unlike the latency readout — this section is labelled by
+ * a heading, not a live region, so changing its text does not queue a screen
+ * reader announcement per frame.
+ */
+const { display: totalVisits } = useCountUp(computed(() => data.value?.totalVisits ?? null))
+const { display: uniqueVisitors } = useCountUp(computed(() => data.value?.uniqueVisitors ?? null))
+const { display: visitsLast24h } = useCountUp(computed(() => data.value?.visitsLast24h ?? null))
+
 const totals = computed(() => {
   if (!data.value) return []
   return [
-    { label: 'Total kunjungan', value: numberFormat.format(data.value.totalVisits) },
-    { label: 'Pengunjung unik', value: numberFormat.format(data.value.uniqueVisitors) },
-    { label: '24 jam terakhir', value: numberFormat.format(data.value.visitsLast24h) },
+    { label: 'Total kunjungan', value: numberFormat.format(totalVisits.value) },
+    { label: 'Pengunjung unik', value: numberFormat.format(uniqueVisitors.value) },
+    { label: '24 jam terakhir', value: numberFormat.format(visitsLast24h.value) },
   ]
 })
 
@@ -28,7 +49,7 @@ const topColos = computed(() => data.value?.topColos ?? [])
  * visits the top country is most of the traffic, and scaling by total would render
  * every bar as a sliver. Relative to the leader, the shape of the distribution is
  * readable at any volume. This is the honest number reported to assistive tech —
- * `share()` pads the *width* below, this does not.
+ * `barScale()` pads the rendered length below, this does not.
  */
 function rawShare(buckets: { count: number }[], count: number): number {
   const top = buckets.reduce((max, bucket) => Math.max(max, bucket.count), 0)
@@ -37,16 +58,21 @@ function rawShare(buckets: { count: number }[], count: number): number {
 }
 
 /**
- * Bar width as a CSS percentage, floored at 6%.
+ * Bar length as a unit scale factor, floored at 0.06.
  *
  * The floor is a rendering concession only: a sub-6% sliver is invisible, so the
  * smallest bars are widened just enough to stay perceivable. That padding must
  * never leak into the accessible label — a screen reader hearing "6%" for a bar
  * that is really 2% would be told a wrong number. The `aria-label` therefore reads
- * `rawShare()` (unclamped), while the visual width reads this.
+ * `rawShare()` (unclamped), while the visual length reads this.
+ *
+ * A scale factor rather than a percentage width because the bar animates when the
+ * data refreshes, and `width` animates through layout: every frame would re-run
+ * layout for the row and everything after it. `scaleX` is a composited transform,
+ * so the same movement costs a paint at most.
  */
-function share(buckets: { count: number }[], count: number): string {
-  return `${Math.max(6, rawShare(buckets, count))}%`
+function barScale(buckets: { count: number }[], count: number): number {
+  return Math.max(6, rawShare(buckets, count)) / 100
 }
 
 /**
@@ -117,7 +143,7 @@ onUnmounted(() => {
     Hidden entirely when switched off in KV or when storage is unwired. A panel of
     zeroes would imply nobody has ever visited, which is worse than no panel.
   -->
-  <section v-if="!isDisabled" class="insights" aria-labelledby="insights-title">
+  <section v-if="!isDisabled" ref="panel" class="insights" aria-labelledby="insights-title">
     <header class="insights__header">
       <div>
         <h2 id="insights-title" class="insights__title">📊 Edge Insights</h2>
@@ -140,7 +166,7 @@ onUnmounted(() => {
     </div>
 
     <div v-else-if="data" class="insights__body">
-      <div class="insights__totals">
+      <div class="insights__totals m-cascade">
         <div v-for="total in totals" :key="total.label" class="insights__total">
           <span class="insights__total-value">{{ total.value }}</span>
           <span class="insights__total-label">{{ total.label }}</span>
@@ -151,7 +177,7 @@ onUnmounted(() => {
         <div class="insights__chart">
           <h3 class="insights__chart-title">Negara teratas</h3>
           <p v-if="!topCountries.length" class="insights__chart-empty">Belum ada data.</p>
-          <ul v-else class="insights__bars">
+          <ul v-else class="insights__bars m-cascade">
             <li
               v-for="bucket in topCountries"
               :key="bucket.key"
@@ -163,7 +189,7 @@ onUnmounted(() => {
               <span class="insights__bar-track" aria-hidden="true">
                 <span
                   class="insights__bar-fill"
-                  :style="{ width: share(topCountries, bucket.count) }"
+                  :style="{ transform: `scaleX(${barScale(topCountries, bucket.count)})` }"
                 />
               </span>
               <span class="insights__bar-count" aria-hidden="true">{{ bucket.count }}</span>
@@ -174,7 +200,7 @@ onUnmounted(() => {
         <div class="insights__chart">
           <h3 class="insights__chart-title">Edge POP teratas</h3>
           <p v-if="!topColos.length" class="insights__chart-empty">Belum ada data.</p>
-          <ul v-else class="insights__bars">
+          <ul v-else class="insights__bars m-cascade">
             <li
               v-for="bucket in topColos"
               :key="bucket.key"
@@ -186,7 +212,7 @@ onUnmounted(() => {
               <span class="insights__bar-track" aria-hidden="true">
                 <span
                   class="insights__bar-fill insights__bar-fill--alt"
-                  :style="{ width: share(topColos, bucket.count) }"
+                  :style="{ transform: `scaleX(${barScale(topColos, bucket.count)})` }"
                 />
               </span>
               <span class="insights__bar-count" aria-hidden="true">{{ bucket.count }}</span>
@@ -281,6 +307,10 @@ onUnmounted(() => {
   font-size: 1.4rem;
   font-weight: 700;
   color: var(--text-dark);
+  /* These digits are tweened, so their width changes on almost every frame
+     unless the figures are tabular. Without this the label underneath and the
+     two sibling cards visibly shuffle while the numbers settle. */
+  font-variant-numeric: tabular-nums;
 }
 
 .insights__total-label {
@@ -339,12 +369,24 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
+/*
+ * Full width, scaled down to its share — see `barScale()` for why this is not a
+ * width. Origin is the left edge so the bar grows out of the track rather than
+ * out of its own centre.
+ *
+ * One honest trade-off: scaling squashes the pill radius horizontally, so a very
+ * short bar has slightly flatter caps than it used to. On a 10px-tall track that
+ * is a sub-pixel difference, and it buys a bar that can update without laying out
+ * the rows below it.
+ */
 .insights__bar-fill {
   display: block;
+  width: 100%;
   height: 100%;
   background: var(--blue-main);
   border-radius: var(--radius-badge);
-  transition: width 0.4s ease;
+  transform-origin: left center;
+  transition: transform var(--motion-base) var(--ease-settle);
 }
 
 .insights__bar-fill--alt {
