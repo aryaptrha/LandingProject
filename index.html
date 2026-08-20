@@ -4,13 +4,27 @@
 <head>
   <meta charset="UTF-8">
 
-  <!-- Favicon: virgo.png (16×16) is the primary icon; favicon.ico is the legacy
-       fallback for clients that ignore rel="icon" with a type. sizes="any" marks the
-       raster .ico as scalable so it doesn't get preferred over the typed PNG above.
-       Both files ship in public/ — neither is deleted. -->
-  <link rel="icon" href="/virgo.png" type="image/png">
+  <!-- Favicon: main-icon.gif (64×64, 19 frames, 1.27 s loop) is the primary icon.
+       Firefox animates GIF favicons; Chrome, Edge and Safari render frame 1 only —
+       that is the purple full-grin frame, which reads on its own, so the animation is
+       a bonus and never load-bearing. favicon.ico (16/32/48) is the legacy fallback
+       and is also what a browser gets when it probes /favicon.ico without consulting
+       this markup, so it is cut from the same artwork rather than left stale.
+       sizes="any" marks the raster .ico as scalable so it isn't preferred over the
+       typed GIF above.
+
+       No sized PNG is declared next to these on purpose: an exact-size match wins
+       icon negotiation in every browser, so a 32×32 PNG here would quietly make the
+       GIF dead weight. icon-192.png exists only for apple-touch-icon and the
+       manifest, which cannot take a GIF.
+
+       All three are generated from assets-src/main-icon.source.gif (480×360, 2.27 MB,
+       not shipped): cropped to (95, 95)–(325, 325) because the full-body framing
+       dissolves into the background pattern at 16 px, then reduced to one global
+       32-colour palette with dithering off. -->
+  <link rel="icon" href="/main-icon.gif" type="image/gif">
   <link rel="icon" href="/favicon.ico" sizes="any">
-  <link rel="apple-touch-icon" href="/virgo.png">
+  <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="manifest" href="/site.webmanifest">
 
   <!-- Self-Hosted Web Fonts: Preloaded directly for 0-CLS instant rendering without external hops -->
