@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "hyperframes-animation": {
+      "source": "heygen-com/hyperframes",
+      "sourceType": "github",
+      "skillPath": "skills/hyperframes-animation/SKILL.md",
+      "computedHash": "98b083870a81b7748acf8068855eb455c9c7e5c840627d4a2a8005b0d687cb79"
+    },
     "vue-best-practices": {
       "source": "hyf0/vue-skills",
       "sourceType": "github",
