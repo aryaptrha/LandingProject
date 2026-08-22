@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import { onMounted, defineAsyncComponent } from 'vue'
+import { ref, onMounted, defineAsyncComponent } from 'vue'
 import { vAutoAnimate } from '@formkit/auto-animate/vue'
+import gsap from 'gsap'
 import { recordVisit } from './composables/useVisitLogger'
+
+const headerRef = ref<HTMLElement | null>(null)
+
+const titleWords = "aryaptrha Projects".split(' ')
+const subtitleWords = "A cozy collection of things I've built and explored.".split(' ')
 import MenuCard from './components/MenuCard.vue'
 import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
 import LatencyIndicator from './components/LatencyIndicator.vue'
@@ -97,14 +103,37 @@ onMounted(() => {
   } else {
     window.addEventListener('load', () => setTimeout(triggerVisit, 2000), { once: true })
   }
+
+  // Header Animation
+  if (headerRef.value) {
+    gsap.fromTo(
+      headerRef.value.querySelectorAll('.anim-word'),
+      { y: '120%' },
+      {
+        y: '0%',
+        duration: 0.8,
+        ease: 'power4.out',
+        stagger: 0.05,
+        delay: 0.2 // Small delay to let the page settle
+      }
+    )
+  }
 })
 </script>
 
 <template>
   <div class="landing">
-    <header class="landing__header">
-      <h1 class="landing__title">aryaptrha Projects</h1>
-      <p class="landing__subtitle">A cozy collection of things I've built and explored.</p>
+    <header class="landing__header" ref="headerRef">
+      <h1 class="landing__title">
+        <span class="mask" v-for="(word, i) in titleWords" :key="'title-' + i">
+          <span class="anim-word">{{ word }}&nbsp;</span>
+        </span>
+      </h1>
+      <p class="landing__subtitle">
+        <span class="mask" v-for="(word, i) in subtitleWords" :key="'sub-' + i">
+          <span class="anim-word">{{ word }}&nbsp;</span>
+        </span>
+      </p>
     </header>
 
     <!-- Main Projects View -->
@@ -220,19 +249,26 @@ onMounted(() => {
   pointer-events: none;
 }
 
-/*
- * The header is deliberately the one thing on this page that does not animate.
- * `index.html` ships it as static markup so it can paint before any JS runs, and
- * Vue then replaces that markup with an identical render. Fading it in would mean
- * fading in something the visitor is already looking at; lifting it into place
- * would mean watching it jump. The grid below owns the page's arrival instead.
- */
 .landing__header {
   text-align: center;
   margin-bottom: var(--space-2xl);
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  /* Prevent descenders from being clipped */
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
+}
+
+.anim-word {
+  display: inline-block;
+  transform: translateY(120%);
 }
 
 .landing__title {

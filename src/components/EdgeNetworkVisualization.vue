@@ -1019,10 +1019,11 @@ onUnmounted(() => {
 
 .scenario-banner__header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: var(--space-sm);
-  margin-bottom: 4px;
+  margin-bottom: 12px;
 }
 
 .scenario-banner__title {
@@ -1041,6 +1042,8 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: var(--radius-badge);
   color: var(--text-medium);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .scenario-banner__text {
