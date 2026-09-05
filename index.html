@@ -42,9 +42,10 @@
   <meta name="robots" content="index, follow">
   <meta id="theme-color-meta" name="theme-color" content="#FAFAF7">
 
-  <!-- Resolve the theme before first paint, so a night visitor never sees a
-       flash of the day palette. Mirrors the logic in src/composables/useTheme.ts;
-       the key must stay in sync with STORAGE_KEY there. -->
+  <!-- Resolve the theme and the view mode before first paint, so a night visitor
+       never sees a flash of the day palette. Mirrors the logic in
+       src/composables/useTheme.ts and src/composables/useViewMode.ts; both keys must
+       stay in sync with STORAGE_KEY there. -->
   <script>
     (function () {
       try {
@@ -62,6 +63,18 @@
         }
       } catch (e) {
         document.documentElement.setAttribute('data-theme', 'day')
+      }
+
+      // Its own try/catch, not folded into the one above: a malformed stored theme
+      // must not leave the view mode unresolved, or vice versa.
+      try {
+        var storedView = localStorage.getItem('portfolio_view')
+        document.documentElement.setAttribute(
+          'data-view',
+          storedView === 'visitor' || storedView === 'dev' ? storedView : 'visitor'
+        )
+      } catch (e) {
+        document.documentElement.setAttribute('data-view', 'visitor')
       }
     })()
   </script>

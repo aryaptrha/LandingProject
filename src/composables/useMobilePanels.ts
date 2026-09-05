@@ -99,7 +99,15 @@ export function useMobilePanel(id: MobilePanelId, close: () => void) {
   init()
 
   onMounted(() => closers.set(id, close))
-  onUnmounted(() => closers.delete(id))
+  onUnmounted(() => {
+    closers.delete(id)
+    // A panel that is gone cannot hold the bottom of the screen. Left set, a stale
+    // `holder` would send the next narrowing past the breakpoint into
+    // `closeAllBut('edge')` with no edge panel mounted — closing the chat and the
+    // music drawer on behalf of a claimant that no longer exists. Reachable since
+    // the edge panel became dev-only and so unmounts on a view switch.
+    if (holder === id) holder = null
+  })
 
   /**
    * Call when this panel opens, to take the bottom of the screen off whoever else has it.

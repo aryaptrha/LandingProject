@@ -2,8 +2,12 @@ import { nextTick } from 'vue'
 import { prefersReducedMotion } from './motion'
 
 /**
- * Palette reveal for the theme toggle: the incoming theme is uncovered by a
- * circle growing out of the button that was pressed.
+ * State reveal for the corner toggles: the incoming state is uncovered by a
+ * circle growing out of the control that was pressed.
+ *
+ * Written for the theme toggle and since reused by the view-mode switch, which
+ * swaps whole sections of the page in and out. Both are the same problem — a
+ * change too large for the page to animate its way through property by property.
  *
  * The approach comes from the hyperframes `theme-crossfade-morph` rule, whose
  * central claim is that a re-skin must never tween its properties — fonts,
@@ -66,8 +70,9 @@ type StartViewTransition = (callback: () => void | Promise<void>) => ViewTransit
  * Measured at press time rather than precomputed. The hyperframes constraint
  * against `getBoundingClientRect()` exists because a video renderer samples
  * frames in parallel and a tween-time measurement desyncs; in a live click
- * handler the opposite holds — this button is `position: fixed` and moves with
- * the viewport and the 480px breakpoint, so a constant would go stale.
+ * handler the opposite holds — every control that calls this moves, whether by
+ * being `position: fixed` against a resizing viewport or by sitting in a header
+ * that reflows, so a constant would go stale.
  */
 export function originOf(el: Element | null | undefined): RevealOrigin | null {
   if (!el) return null
@@ -77,12 +82,20 @@ export function originOf(el: Element | null | undefined): RevealOrigin | null {
 }
 
 /**
- * Applies `mutate` — expected to change the theme — and reveals the result from
- * `origin`. Falls back to applying it outright, which is exactly what the toggle
- * did before this existed, so an unsupported browser loses an animation rather
- * than a feature.
+ * Applies `mutate` and reveals the result from `origin`. Falls back to applying it
+ * outright, which is exactly what the toggle did before this existed, so an
+ * unsupported browser loses an animation rather than a feature.
+ *
+ * `watchedKey` names the `data-*` attribute on <html> that `mutate` is expected to
+ * change — `data-theme` for the palette, `data-view` for the view mode. It is not
+ * decoration: the reveal is skipped when that attribute comes back unchanged (see
+ * below), so a caller that named the wrong one would be silently un-animated.
  */
-export function runThemeTransition(origin: RevealOrigin | null, mutate: () => void): void {
+export function runRevealTransition(
+  origin: RevealOrigin | null,
+  mutate: () => void,
+  watchedKey: 'theme' | 'view' = 'theme',
+): void {
   const start = (document as unknown as { startViewTransition?: StartViewTransition })
     .startViewTransition
 
@@ -92,18 +105,20 @@ export function runThemeTransition(origin: RevealOrigin | null, mutate: () => vo
   }
 
   const root = document.documentElement
-  const before = root.dataset.theme
+  const before = root.dataset[watchedKey]
 
   const transition = start.call(document, async () => {
     mutate()
-    // `useTheme`'s watcher writes `data-theme` on flush, and the toggle swaps its
-    // icon in the same tick. Both must land before the browser captures the new
-    // state, or the reveal would uncover the palette it started from.
+    // The composable's watcher writes the attribute on flush, and the toggle
+    // re-renders in the same tick. Both must land before the browser captures the
+    // new state, or the reveal would uncover the state it started from.
     await nextTick()
   })
 
   // Scopes the stylesheet's pseudo-element overrides to this transition, so a
   // future view transition elsewhere still gets the browser's own cross-fade.
+  // `themeReveal` is named for its first caller, not its only one — the overrides
+  // in motion.css are about the reveal mechanism and are correct for any flip.
   root.dataset.themeReveal = ''
   const cleanup = () => {
     delete root.dataset.themeReveal
@@ -111,12 +126,12 @@ export function runThemeTransition(origin: RevealOrigin | null, mutate: () => vo
 
   transition.ready
     .then(() => {
-      // The toggle is tri-state: day -> night -> system -> day. Landing on
-      // "system" resolves to whichever palette the OS asks for, which is
-      // frequently the one already on screen. Revealing an identical surface
-      // would spend 300ms saying nothing, so only a real palette change earns
-      // the reveal — the icon swap has its own `m-fade` either way.
-      if (root.dataset.theme === before) {
+      // Revealing an identical surface would spend 300ms saying nothing, so only
+      // a real change earns the reveal. The theme toggle is where this bites: it
+      // is tri-state — day -> night -> system -> day — and landing on "system"
+      // resolves to whichever palette the OS asks for, frequently the one already
+      // on screen. Its icon swap has its own `m-fade` either way.
+      if (root.dataset[watchedKey] === before) {
         transition.skipTransition()
         return
       }

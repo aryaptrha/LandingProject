@@ -56,12 +56,16 @@ src/
   components/
     MenuCard.vue          Landing grid tiles
     ThemeToggle.vue       Day/night switch
+    ViewModeToggle.vue    Visitor/dev view switch, in the header
     CloudflareEdgeStatus.vue, LatencyIndicator.vue, EdgeNetworkVisualization.vue
                           Floating edge-telemetry widgets
     chat/                 Chat widget (container, header, message list + item,
                           input, prompt chips, avatar picker, Arya pixel face)
     icons/                Pixel-art SVG icons
-  composables/            useChat, useTheme, useEdgeStatus, useLatency, useVisitLogger
+  composables/            useChat, useTheme, useViewMode, useEdgeStatus, useLatency,
+                          useVisitLogger
+  data/
+    viewModes.ts          Every string that differs between visitor and dev view
   utils/
     sse.ts                Tolerant SSE reader (pure, no Vue)
     motion.ts             prefers-reduced-motion check for JS-driven loops
@@ -80,6 +84,30 @@ TypeScript is split into three projects (`tsconfig.app.json`,
 `tsconfig.node.json`, `src/worker/tsconfig.json`) because the client and the
 worker have incompatible globals — the app config excludes `src/worker/**`, and
 only the worker config pulls in `@cloudflare/workers-types`.
+
+## Two views
+
+The header carries a `Visitor / Dev` switch. About half of this page is
+engineer-facing — an edge topology map, a live insights panel, and a floating
+latency + edge-status rail — which is the point for one audience and noise for the
+other, so the view mode decides whether it is there at all.
+
+| | Visitor (default) | Dev |
+| --- | --- | --- |
+| Header subtitle | cozy framing | names the runtime and stack |
+| Edge Network Topology | hidden | shown |
+| Live Edge Insights | hidden | shown |
+| Latency + edge-status rail | hidden | shown |
+| Guestbook | shown, without its `KV cache` / `D1 query` badge | shown, with it |
+| Chat prompt chips | "Siapa kamu?" … | "Stack-nya apa?" … |
+| Cards, music, theme + sound toggles | identical | identical |
+
+The choice lives in `localStorage` under `portfolio_view` and is mirrored onto
+`<html data-view>` — resolved before first paint by the inline script in
+`index.html`, alongside the theme. Switching runs the same circular reveal as the
+theme toggle, which is what keeps a thousand pixels of page arriving or leaving
+from reading as a jump. `src/data/viewModes.ts` holds every string that differs, so
+the copy is one file to read rather than five components to grep.
 
 ## API routes
 

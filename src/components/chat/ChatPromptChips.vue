@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useViewMode } from '../../composables/useViewMode'
+import { VIEW_MODE_COPY } from '../../data/viewModes'
+
 interface Props {
   /** Disabled while a reply is in flight, so chips can't queue up requests. */
   disabled?: boolean
@@ -10,11 +14,14 @@ const emit = defineEmits<{
   send: [prompt: string]
 }>()
 
-const prompts = [
-  { label: 'Siapa kamu?', text: 'Siapa kamu?' },
-  { label: 'Project favorit kamu?', text: 'Project favorit kamu apa?' },
-  { label: 'Belajar apa sekarang?', text: 'Sekarang kamu sedang belajar apa?' },
-]
+/**
+ * The openers follow the view mode: a visitor is offered the questions someone
+ * meeting the person asks, a dev the ones someone reading the build asks. Same
+ * assistant and same endpoint behind both — only the way in changes, so nothing
+ * here needs to tell the backend which view asked.
+ */
+const { mode } = useViewMode()
+const prompts = computed(() => VIEW_MODE_COPY[mode.value].promptChips)
 </script>
 
 <template>

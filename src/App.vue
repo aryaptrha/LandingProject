@@ -1,18 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted, defineAsyncComponent } from 'vue'
+import { computed, nextTick, ref, onMounted, watch, defineAsyncComponent } from 'vue'
 import { vAutoAnimate } from '@formkit/auto-animate/vue'
 import gsap from 'gsap'
 import { recordVisit } from './composables/useVisitLogger'
-
-const headerRef = ref<HTMLElement | null>(null)
-
-const titleWords = "aryaptrha Projects".split(' ')
-const subtitleWords = "A cozy collection of things I've built and explored.".split(' ')
+import { useViewMode } from './composables/useViewMode'
+import { VIEW_MODE_COPY } from './data/viewModes'
+import { prefersReducedMotion } from './utils/motion'
 import MenuCard from './components/MenuCard.vue'
 import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
 import LatencyIndicator from './components/LatencyIndicator.vue'
 import ThemeToggle from './components/ThemeToggle.vue'
 import SoundToggle from './components/SoundToggle.vue'
+import ViewModeToggle from './components/ViewModeToggle.vue'
 import LazySection from './components/LazySection.vue'
 import IconGameDev from './components/icons/IconGameDev.vue'
 import IconBackend from './components/icons/IconBackend.vue'
@@ -26,6 +25,22 @@ const EdgeGuestbook = defineAsyncComponent(() => import('./components/EdgeGuestb
 const EdgeInsights = defineAsyncComponent(() => import('./components/EdgeInsights.vue'))
 const ChatContainer = defineAsyncComponent(() => import('./components/chat/ChatContainer.vue'))
 const MusicPlayerWidget = defineAsyncComponent(() => import('./components/music/MusicPlayerWidget.vue'))
+
+const headerRef = ref<HTMLElement | null>(null)
+
+// Half of this page is engineer-facing telemetry that a recruiter or a friend has
+// no use for, and the other half is the part they came for. `dev` shows both; the
+// default `visitor` view shows only the second. Everything that differs between the
+// two lives in `data/viewModes.ts`, so this file only decides *where* each piece
+// goes, not what it says.
+const { mode, isDev } = useViewMode()
+const copy = computed(() => VIEW_MODE_COPY[mode.value])
+
+// Split per-word for the masked reveal in the template. Computed rather than the
+// module-level literals these used to be, because the subtitle is what carries the
+// reframe between views.
+const titleWords = computed(() => copy.value.title.split(' '))
+const subtitleWords = computed(() => copy.value.subtitle.split(' '))
 
 const menuItems = [
   {
@@ -88,6 +103,51 @@ const menuItems = [
  */
 const railMotion = { duration: 200, easing: 'ease-out' }
 
+/**
+ * The masked per-word reveal on the title and subtitle.
+ *
+ * Extracted from `onMounted` because it now runs twice: once on arrival, and again
+ * whenever the view changes, since a new subtitle is a different set of `.anim-word`
+ * elements. Re-running is not optional — `.anim-word` starts at `translateY(120%)`
+ * in CSS, so any word this never reaches stays hidden behind its mask.
+ *
+ * That is also why the reduced-motion branch sets the end state rather than
+ * returning early. `base.css` neutralises CSS animation for those visitors, but the
+ * from-state here is a plain `transform`, not an animation, so nothing else would
+ * ever clear it.
+ */
+function revealHeader() {
+  if (!headerRef.value) return
+  const words = headerRef.value.querySelectorAll('.anim-word')
+  if (!words.length) return
+
+  if (prefersReducedMotion()) {
+    gsap.set(words, { y: '0%' })
+    return
+  }
+
+  gsap.fromTo(
+    words,
+    { y: '120%' },
+    {
+      y: '0%',
+      duration: 0.8,
+      ease: 'power4.out',
+      stagger: 0.05,
+      delay: 0.2 // Small delay to let the page settle
+    }
+  )
+}
+
+// The words are `v-for`ed off `subtitleWords`, so they only exist after the render
+// the mode change triggers — hence `nextTick` before reaching for them. No delay is
+// added on top: `runRevealTransition` is already holding the old page over this, and
+// the reveal circle is what the words emerge under.
+watch(mode, async () => {
+  await nextTick()
+  revealHeader()
+})
+
 onMounted(() => {
   if (typeof window === 'undefined') return
   const triggerVisit = () => {
@@ -104,20 +164,7 @@ onMounted(() => {
     window.addEventListener('load', () => setTimeout(triggerVisit, 2000), { once: true })
   }
 
-  // Header Animation
-  if (headerRef.value) {
-    gsap.fromTo(
-      headerRef.value.querySelectorAll('.anim-word'),
-      { y: '120%' },
-      {
-        y: '0%',
-        duration: 0.8,
-        ease: 'power4.out',
-        stagger: 0.05,
-        delay: 0.2 // Small delay to let the page settle
-      }
-    )
-  }
+  revealHeader()
 })
 </script>
 
@@ -134,6 +181,15 @@ onMounted(() => {
           <span class="anim-word">{{ word }}&nbsp;</span>
         </span>
       </p>
+      <!--
+        In the header rather than in the corner with the theme and sound toggles.
+        Those two adjust how the page looks and can afford to sit out of the way;
+        this one changes what the page *is*, so it belongs with the words that
+        introduce it, where it reads as part of the framing and not as a stray
+        setting. It is deliberately not part of the masked reveal above — a control
+        should be pressable the moment it is painted.
+      -->
+      <ViewModeToggle class="m-rise" />
     </header>
 
     <!-- Main Projects View -->
@@ -156,8 +212,16 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Heavy below-the-fold sections lazy loaded with zero-CLS skeleton fallback -->
+        <!--
+          Heavy below-the-fold sections lazy loaded with zero-CLS skeleton fallback.
+
+          Dev view only, and gated here on the `LazySection` rather than by a prop on
+          it: the skeleton reserves its `min-height` through `contain-intrinsic-size`,
+          so a section that was mounted but hidden would still hold 480px of empty
+          page for a visitor who is never going to see it.
+        -->
         <LazySection
+          v-if="isDev"
           min-height="480px"
           title="Edge Network Topology"
           class="grid-spacing"
@@ -170,16 +234,22 @@ onMounted(() => {
           these two show it doing something durable. Guestbook first, because it is
           the one a visitor can interact with; insights second, because it is partly
           a readout of that interaction.
+
+          Which is also why the guestbook is the one edge panel that survives visitor
+          view while the map above and the insights below it do not: it is a thing to
+          use, not a readout to admire. In visitor view it is simply the first section
+          under the cards, and only its title and its storage-source badge change.
         -->
         <LazySection
           min-height="450px"
-          title="Edge Guestbook"
+          :title="copy.guestbookTitle"
           class="grid-spacing"
         >
           <EdgeGuestbook />
         </LazySection>
 
         <LazySection
+          v-if="isDev"
           min-height="240px"
           title="Live Edge Insights"
           class="grid-spacing"
@@ -209,8 +279,14 @@ onMounted(() => {
     fades it, fades and scales the incoming one, and carries the meter across the distance
     the swap opened up — none of which the widget could do from inside itself, having no
     say over its siblings or over the rail's own geometry.
+
+    The whole rail is dev-only. Both widgets are live readouts of the edge that served
+    the page — round-trip milliseconds, colo code, Ray ID, TLS version — which is the
+    detail dev view exists to show and the noise visitor view exists to drop. Gating
+    the rail rather than each widget also spares the empty flex container, and takes
+    `CloudflareEdgeStatus` with it, so the mobile bottom band goes too.
   -->
-  <div class="widget-rail m-dock" v-auto-animate="railMotion">
+  <div v-if="isDev" class="widget-rail m-dock" v-auto-animate="railMotion">
     <LatencyIndicator />
     <CloudflareEdgeStatus />
   </div>
