@@ -142,7 +142,9 @@ function revealHeader() {
 // The words are `v-for`ed off `subtitleWords`, so they only exist after the render
 // the mode change triggers — hence `nextTick` before reaching for them. No delay is
 // added on top: `runRevealTransition` is already holding the old page over this, and
-// the reveal circle is what the words emerge under.
+// the dissolving blocks are what the words emerge under. Its 0.2s lead-in plus 0.8s
+// run outlast the 500ms dissolve on purpose — the blocks finish, and the last words
+// are still rising, so the switch ends on the header rather than on the mechanism.
 watch(mode, async () => {
   await nextTick()
   revealHeader()
@@ -224,7 +226,8 @@ onMounted(() => {
           v-if="isDev"
           min-height="480px"
           title="Edge Network Topology"
-          class="grid-spacing"
+          class="grid-spacing m-step"
+          style="--i: 0"
         >
           <EdgeNetworkVisualization />
         </LazySection>
@@ -248,11 +251,23 @@ onMounted(() => {
           <EdgeGuestbook />
         </LazySection>
 
+        <!--
+          `m-step` with an explicit `--i`, so the two dev-only panels arrive 40ms
+          apart inside the pixel dissolve rather than both snapping in at once. The
+          topology panel takes slot 0 and this one slot 1; the widget rail's `m-dock`
+          already sits at slot 4, which puts the floating chrome last and keeps the
+          whole cascade — 200ms plus 160ms of delay — inside the 500ms dissolve.
+
+          Mostly felt rather than seen from the top of the page, since both panels are
+          below the fold. It is for the visitor who toggles while scrolled down to
+          compare the two views, which is the reason to toggle at all.
+        -->
         <LazySection
           v-if="isDev"
           min-height="240px"
           title="Live Edge Insights"
-          class="grid-spacing"
+          class="grid-spacing m-step"
+          style="--i: 1"
         >
           <EdgeInsights />
         </LazySection>

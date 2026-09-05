@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useViewMode, type ViewMode } from '../composables/useViewMode'
 import { useRetroSound } from '../composables/useRetroSound'
 import { VIEW_MODE_COPY } from '../data/viewModes'
-import { originOf, runRevealTransition } from '../utils/themeTransition'
+import { originOf, runRevealTransition } from '../utils/reveal'
 
 /**
  * Order is both the visual order and the arrow-key order, and it is deliberate:
@@ -48,11 +48,18 @@ function select(rawIndex: number) {
   segment?.focus()
 
   // Home/End can land on the segment that is already checked. Running the reveal
-  // for that would spend 300ms uncovering the page it started from.
+  // for that would spend half a second uncovering the page it started from.
   if (next === mode.value) return
 
   playToggle()
-  runRevealTransition(originOf(segment), () => setMode(next), 'view')
+  // The `pixel` style rather than the theme toggle's circle, and the origin is what
+  // makes it worth the parameter: the dissolve's first block lands on the segment
+  // under the visitor's finger and spreads from there, so the page appears to be
+  // rebuilt by the press instead of merely after it.
+  runRevealTransition(originOf(segment), () => setMode(next), {
+    watchedKey: 'view',
+    style: 'pixel',
+  })
 }
 
 /**

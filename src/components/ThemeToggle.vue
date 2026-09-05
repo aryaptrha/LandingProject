@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useTheme } from '../composables/useTheme'
 import { useRetroSound } from '../composables/useRetroSound'
-import { originOf, runRevealTransition } from '../utils/themeTransition'
+import { originOf, runRevealTransition } from '../utils/reveal'
 
 // This control is tri-state — day, night, and "follow system" — not a boolean
 // toggle. `useTheme` already models the third state: an explicit day/night pick
