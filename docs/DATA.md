@@ -185,11 +185,14 @@ Append-only log, one row per deduped visit. Indexed on `created_at DESC` for the
 | `v1:guestbook:page:first` | 60s | `GET /api/guestbook` (default page) | `POST /api/guestbook` |
 | `v1:guestbook:stats` | 300s | `GET /api/guestbook/stats` | `POST /api/guestbook` |
 | `v1:insights:summary` | 300s | `GET /api/insights` | TTL only |
+| `v1:gw:openweather:weather:<lat>:<lon>` | 600s | `GET /api/weather` | TTL only |
 | `rl:<hash>:<window>` | window + margin | `POST /api/guestbook` | expiry only |
+| `rl:weather:<hash>:<window>` | window + margin | `GET /api/weather` | expiry only |
+| `gw:breaker:<upstream>` | cooldown x 2, min 60s | a failed or recovered gateway call | a success, or expiry |
 | `visit:seen:<sessionId>` | 1800s | `GET /api/visitor` | expiry only |
 | `site:config` | n/a (`cacheTtl: 60`) | you, by hand | you, by hand |
 
-Two conventions worth knowing:
+Three conventions worth knowing:
 
 - **`v1:` prefix on cached values.** Bump `CACHE_VERSION` in `kv.service.ts` and
   every previously cached value is orphaned at once — the cheap way to ship a shape
@@ -198,9 +201,19 @@ Two conventions worth knowing:
 - **60 seconds is the floor.** KV rejects an `expirationTtl` below 60, so
   `kv.service.ts` clamps up to it. When tuning a TTL, 60s is a hard minimum, not a
   default.
+- **`gw:` marks a gateway-owned key.** `upstream.ts` caches through the same
+  `cacheKey()` helper, so an outbound response lands at `v1:gw:<upstream>:<parts>` and
+  a `CACHE_VERSION` bump orphans it along with everything else. The parts come from
+  the route and never include the upstream URL: that string carries the API key, so a
+  URL-derived key would both persist a secret in KV and orphan every entry the moment
+  the key rotates. `/api/weather` passes the coordinates it already coarsened to two
+  decimals, which is what makes two visitors in the same city one cache entry.
+  Breaker state sits outside the versioned space at `gw:breaker:<id>`, because it
+  describes an upstream's health rather than a payload shape — re-versioning it on a
+  deploy would forget that a dependency is down.
 
-Only cached *values* carry the version prefix. Rate-limit and dedupe keys do not —
-they are ephemeral and expire faster than any deploy.
+Only cached *values* carry the version prefix. Rate-limit, dedupe, and breaker keys
+do not — they are ephemeral and expire faster than any deploy.
 
 ## API surface
 
@@ -212,6 +225,7 @@ they are ephemeral and expire faster than any deploy.
 | `GET` | `/api/insights` | Cached aggregate, `403 INSIGHTS_DISABLED` when switched off |
 | `GET` | `/api/config` | Feature flags. Always answers, defaults included |
 | `GET` | `/api/visitor` | Unchanged response; now also logs the visit in `waitUntil` |
+| `GET` | `/api/weather` | Through the gateway: 600s KV cache, rate limited, `503 WEATHER_UNCONFIGURED` without a key |
 
 Every response uses the standard envelope (`{ success, data }` /
 `{ success, error: { message, code } }`). Codes the front end branches on:

@@ -46,7 +46,44 @@ export interface Env {
    * Optional; when set, prevents token reuse across different hostnames.
    */
   TURNSTILE_HOSTNAMES?: string
+  /**
+   * OpenWeather API key for `GET /api/weather`.
+   *
+   * A secret (`wrangler secret put OPENWEATHER_API_KEY`, or `.dev.vars` locally),
+   * never a `VITE_` var: Vite inlines those into the client bundle, which would
+   * publish the key to anyone who opens devtools and hand them a metered quota to
+   * spend. Optional like the rest — absent, `/api/weather` answers 503
+   * `WEATHER_UNCONFIGURED` and the panel hides itself.
+   */
+  OPENWEATHER_API_KEY?: string
 }
 
 /** Hono generic for routes that need typed access to `c.env`. */
-export type AppEnv = { Bindings: Env }
+export type AppEnv = {
+  Bindings: Env
+  /**
+   * Set by the inbound gateway, read by its error backstop, and vice versa. Both
+   * exist because Hono's `onError` and the gateway middleware each hold half of
+   * what one log line needs.
+   */
+  Variables: {
+    /**
+     * The id minted once per request in `gateway()`.
+     *
+     * Stashed so `onGatewayError` reuses it instead of calling `requestIdFor`
+     * again: without a `cf-ray` header that helper mints a fresh UUID, which would
+     * file the stack trace under a different id than both the request's log line
+     * and the `X-Request-Id` the client was given.
+     */
+    requestId?: string
+    /**
+     * A route's throw, travelling the other way.
+     *
+     * Hono runs `onError` inside `next()`, so a route error is already a finished
+     * response by the time control returns to the middleware — its `catch` never
+     * sees one. The handler leaves the error here so the request's single log line
+     * can still name what failed.
+     */
+    gatewayError?: Error
+  }
+}

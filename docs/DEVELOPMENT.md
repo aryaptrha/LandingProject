@@ -76,6 +76,7 @@ Public client keys live in `.env` (prefixed with `VITE_`).
 | `PERSONA_API_KEY` | Worker | Only if backend requires auth | Bearer token sent upstream |
 | `TURNSTILE_SECRET_KEY` | Worker | For bot verification | Turnstile secret key for server-side siteverify |
 | `TURNSTILE_HOSTNAMES` | Worker | Optional | Comma-separated allowed hostnames for Turnstile |
+| `OPENWEATHER_API_KEY` | Worker | For `/api/weather` | Free-tier OpenWeather key. Absent, the route answers 503 and the panel hides |
 | `VITE_TURNSTILE_SITE_KEY` | Client | Optional (defaults to test key) | Turnstile public site key for frontend widget |
 
 ### Turnstile Bot Protection in Development
@@ -85,6 +86,30 @@ In local development, if `VITE_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` ar
 - Secret Key: `1x0000000000000000000000000000000AA` (Always passes)
 
 This lets you test the guestbook submission flow locally without creating a Cloudflare Turnstile widget first.
+
+### OpenWeather in development
+
+There is deliberately no sample payload and no dummy key. Unlike Turnstile,
+OpenWeather publishes no always-passing test credential, and a canned reading
+would make a broken integration look like a working one. Two consequences:
+
+- **No key set is a supported state, not a bug.** `/api/weather` answers
+  `503 WEATHER_UNCONFIGURED` and `EdgeWeather.vue` removes its own section — the
+  same shape as `/api/insights` when the flag is off. Worth exercising once so the
+  hidden-panel path is not first seen in production.
+- **A brand-new key 401s for a few minutes** while OpenWeather activates it. That
+  surfaces as an upstream error with a retry button, not as an unconfigured panel.
+  Wait it out rather than debugging the gateway.
+
+Each response carries a `geoSource` saying where its coordinates came from, and the
+useful thing to know is that it usually reads `edge` in dev. Despite the general
+note above about `request.cf` being thin locally, miniflare does supply a plausible
+`cf` under `wrangler dev` — coordinates included — so the Jakarta fallback is not
+the local default. It exists for a real edge request whose `cf` omits them, which
+does happen. To see that branch you have to strip the coordinates deliberately;
+`geoSource` is what tells the panel to caption itself as approximate.
+
+`docs/DATA.md` lists the KV keys the gateway writes on the way through.
 
 ### Why `PERSONA_ORIGIN` matters more locally than in production
 

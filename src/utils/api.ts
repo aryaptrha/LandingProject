@@ -48,6 +48,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(path, init)
   } catch (cause) {
+    // A caller-supplied signal firing is not a network fault, and the two want
+    // different copy: "the request took too long, try again" versus "check your
+    // connection". Only the polling composables pass a signal, so no existing
+    // caller can reach this branch.
+    if (cause instanceof DOMException && cause.name === 'AbortError') {
+      throw new ApiError('Permintaan timeout', 'TIMEOUT', 0)
+    }
     // No response at all: offline, DNS, or a cancelled navigation. Distinguished
     // from a server error by status 0 so the UI can say "check your connection".
     throw new ApiError(
@@ -76,9 +83,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return envelope.data
 }
 
-/** GET a route and return its `data`. */
-export function apiGet<T>(path: string): Promise<T> {
-  return request<T>(path)
+/**
+ * GET a route and return its `data`.
+ *
+ * `init` exists for one reason: a polling composable needs to hand in an
+ * `AbortController` signal so a stalled request cannot outlive its own interval.
+ * The alternative was a bare `fetch` in the composable, which would have meant
+ * hand-unwrapping the envelope again and losing the `ApiError.code` branching
+ * that is the whole point of this module.
+ */
+export function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
+  return request<T>(path, init)
 }
 
 /**

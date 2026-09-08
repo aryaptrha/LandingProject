@@ -24,6 +24,7 @@ import IconOpenSource from './components/icons/IconOpenSource.vue'
 const EdgeNetworkVisualization = defineAsyncComponent(() => import('./components/EdgeNetworkVisualization.vue'))
 const EdgeGuestbook = defineAsyncComponent(() => import('./components/EdgeGuestbook.vue'))
 const EdgeInsights = defineAsyncComponent(() => import('./components/EdgeInsights.vue'))
+const EdgeWeather = defineAsyncComponent(() => import('./components/EdgeWeather.vue'))
 const ChatContainer = defineAsyncComponent(() => import('./components/chat/ChatContainer.vue'))
 const MusicPlayerWidget = defineAsyncComponent(() => import('./components/music/MusicPlayerWidget.vue'))
 
@@ -166,9 +167,22 @@ onMounted(() => {
         </LazySection>
 
         <!--
+          Weather next, and first of the three data panels, because it is the one
+          that makes the edge feel like a place: the map above says "there is a POP
+          near you", this says what the sky looks like there right now.
+        -->
+        <LazySection
+          min-height="470px"
+          title="Edge Weather"
+          class="grid-spacing"
+        >
+          <EdgeWeather />
+        </LazySection>
+
+        <!--
           Below the network map on purpose: that panel shows the edge is there, and
-          these two show it doing something durable. Guestbook first, because it is
-          the one a visitor can interact with; insights second, because it is partly
+          these three show it doing something durable. Guestbook next, because it is
+          the one a visitor can interact with; insights last, because it is partly
           a readout of that interaction.
         -->
         <LazySection

@@ -24,6 +24,10 @@ port = 8788
 #                      Defaults to the worker's own origin, which is right in
 #                      production; only needed in .dev.vars, where the worker
 #                      runs on 127.0.0.1 and would be rejected.
+#   TURNSTILE_SECRET_KEY - Turnstile siteverify + session-token signing
+#   OPENWEATHER_API_KEY  - free-tier OpenWeather key for /api/weather. Absent, the
+#                          route answers 503 WEATHER_UNCONFIGURED and the panel
+#                          hides itself, which is the intended unconfigured state.
 
 # ---------------------------------------------------------------------------
 # Storage bindings
