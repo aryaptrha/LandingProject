@@ -12,6 +12,24 @@ directory = "./dist"
 # throws on an undefined binding.
 binding = "ASSETS"
 
+# Which paths reach the worker *before* the asset server answers them.
+#
+# This is the whole reason edge hydration works. By default a request matching a
+# file in `directory` is served straight from the asset server and the worker is
+# never invoked — so `src/worker/index.ts` only ever saw `/api/*` and requests
+# that matched no file. `HTMLRewriter` cannot inject into a document the worker
+# never touches.
+#
+# Deliberately a path list, not `true`. `true` would route every hashed asset,
+# font and image through the worker as well: ~10 extra invocations per page load
+# against a 100k/day free-tier bucket, to add a header a static `_headers` file
+# can set for free. The document is the only response with anything to inject.
+#
+# Consequence worth knowing: these paths now cost one worker invocation each, and
+# `public/_headers` — not the worker — is what caches the assets. Adding an SPA
+# deep link later means adding it here too, or it loads unhydrated.
+run_worker_first = ["/", "/index.html"]
+
 # Must match the /api proxy target in vite.config.ts so the two-server dev
 # workflow (`npm run dev` + `wrangler dev`) works without a --port flag.
 [dev]

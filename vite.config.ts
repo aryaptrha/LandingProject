@@ -21,8 +21,9 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes('node_modules')) {
             // Checked before the `vue` branch only for readability — GSAP is
-            // lazily imported by src/motion/gsap.ts, so this chunk stays off
-            // the critical path and must not get folded into vendor-libs.
+            // lazily imported by loadGsap() in src/utils/motion.ts, so this
+            // chunk stays off the critical path and must not get folded into
+            // vendor-libs.
             if (id.includes('gsap')) {
               return 'vendor-gsap'
             }

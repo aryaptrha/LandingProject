@@ -1,0 +1,19 @@
+# Response headers applied by the Cloudflare asset server, before any worker runs.
+#
+# Vite copies this file verbatim from public/ into dist/, where the asset server
+# reads it as configuration and does not serve it as a file.
+#
+# Both directories below hold content-hashed filenames, so a changed file is a
+# changed URL and a year-long immutable cache can never go stale. Without this the
+# asset server defaults to `max-age=0, must-revalidate`, which costs a conditional
+# request per asset per navigation to be told nothing changed.
+#
+# This lives here rather than in src/worker/index.ts on purpose: `run_worker_first`
+# in wrangler.toml routes only the document to the worker, so worker code cannot
+# see an asset request. Setting these here also keeps them free — no invocation.
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

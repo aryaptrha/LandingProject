@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { apiGet } from '@/utils/api'
+import { bootSiteConfig } from '@/utils/edgeBoot'
 
 export interface SiteConfigData {
   guestbookEnabled: boolean
@@ -27,6 +28,28 @@ const error = ref<string | null>(null)
 
 /** In-flight request, so concurrent callers await one fetch instead of racing. */
 let inFlight: Promise<void> | null = null
+
+/**
+ * Seed from the boot payload the worker streamed into `<head>`.
+ *
+ * This composable is the one that benefits most from hydration. It fetches once
+ * per page load and never polls, so the request it makes is *purely* a cold-start
+ * cost — and the flags it carries decide whether whole panels render, which puts it
+ * on the critical path for what the first paint looks like.
+ *
+ * Marking `inFlight` as already-settled rather than merely assigning `config` is
+ * what actually removes the request: `useSiteConfig()` starts `load()` only when
+ * `inFlight` is null. `refresh()` still performs a real read, so a flag flipped in
+ * KV mid-session remains reachable.
+ *
+ * Absent under `npm run dev`, where the fetch happens as before — see
+ * `utils/edgeBoot.ts`.
+ */
+const bootConfig = bootSiteConfig()
+if (bootConfig) {
+  config.value = bootConfig
+  inFlight = Promise.resolve()
+}
 
 async function load(): Promise<void> {
   isLoading.value = true

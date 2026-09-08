@@ -1,4 +1,5 @@
 import { ref, onMounted, onUnmounted, getCurrentInstance, type Ref } from 'vue'
+import { bootEdgeStatus } from '@/utils/edgeBoot'
 
 export interface EdgeStatusData {
   status: string
@@ -38,6 +39,28 @@ const REQUEST_TIMEOUT_MS = 5000
 const data = ref<EdgeStatusData | null>(null)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
+
+// --- Boot seed ---------------------------------------------------------------
+/**
+ * One-shot flag: the boot payload has already supplied a snapshot, so the first
+ * *network* fetch can wait a full interval instead of firing on mount.
+ *
+ * Consumed by whichever code path first wants to poll, which is what keeps it
+ * honest across the three entry points below — mount, the deferred `load` handler,
+ * and the tab becoming visible. After it is consumed, every one of those does a
+ * real fetch, because by then the seed is a stale snapshot of a moving value.
+ */
+let bootSeedPending = false
+
+// Runs at module evaluation rather than on subscribe, so the widget is populated
+// before any component mounts and renders filled in on first paint instead of
+// popping in a moment later. Reading a global and validating it is pure; nothing
+// here touches the network. Absent under `npm run dev` — see utils/edgeBoot.ts.
+const bootSeed = bootEdgeStatus()
+if (bootSeed) {
+  data.value = bootSeed
+  bootSeedPending = true
+}
 
 // --- Poll lifecycle ---------------------------------------------------------
 let intervalId: ReturnType<typeof setInterval> | null = null
@@ -113,6 +136,23 @@ function stopInterval() {
   }
 }
 
+/**
+ * Fetches now and starts the cadence — unless the boot seed has not been spent
+ * yet, in which case only the cadence starts.
+ *
+ * Every path that wants polling goes through here rather than calling
+ * `fetchStatus()` and `startInterval()` in sequence, so the seed cannot be honoured
+ * by one entry point and ignored by another.
+ */
+function startPolling() {
+  if (bootSeedPending) {
+    bootSeedPending = false
+  } else {
+    fetchStatus()
+  }
+  startInterval()
+}
+
 function handleVisibilityChange() {
   // Stop the interval while the tab is hidden; on becoming visible again, fire
   // one immediate fetch so a tab that was hidden across several intervals shows
@@ -121,8 +161,7 @@ function handleVisibilityChange() {
   if (document.hidden) {
     stopInterval()
   } else {
-    fetchStatus()
-    startInterval()
+    startPolling()
   }
 }
 
@@ -141,16 +180,14 @@ function subscribe() {
         () => {
           setTimeout(() => {
             if (subscribers > 0 && !document.hidden) {
-              fetchStatus()
-              startInterval()
+              startPolling()
             }
           }, 300)
         },
         { once: true },
       )
     } else {
-      fetchStatus()
-      startInterval()
+      startPolling()
     }
   }
 }

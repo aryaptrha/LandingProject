@@ -1,4 +1,5 @@
 import { apiGet } from '@/utils/api'
+import { bootVisitLogged } from '@/utils/edgeBoot'
 
 /**
  * One-shot visit logging.
@@ -20,7 +21,18 @@ import { apiGet } from '@/utils/api'
 // dev-mode double-fired effect, or two callers — independently of the server-side KV
 // dedupe, which covers the cross-reload case. Belt and braces: the two windows differ,
 // so both are worth having.
-let hasRecorded = false
+//
+// Seeded from the boot payload rather than always starting false. When the document
+// request already scheduled the D1 write (see hydrate.service.ts) there is nothing
+// left for the browser to trigger, so this load starts out already satisfied and
+// `recordVisit()` becomes a no-op — one fewer request, using the guard that was
+// there anyway rather than a second branch.
+//
+// This is a pure optimisation, not a correctness dependency. If the payload is
+// absent — every `npm run dev` session — the ping happens exactly as before, and if
+// both somehow fire, the worker's `visit:seen:<sid>` KV marker collapses them into
+// one row.
+let hasRecorded = bootVisitLogged()
 
 /**
  * Records this page load as a visit. Fire-and-forget and idempotent per load.
