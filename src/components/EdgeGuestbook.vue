@@ -12,6 +12,7 @@ import {
 import { useSiteConfig } from '@/composables/useSiteConfig'
 import { useRetroSound } from '@/composables/useRetroSound'
 import { useReveal } from '@/composables/useReveal'
+import { useViewMode } from '@/composables/useViewMode'
 
 const {
   entries,
@@ -75,8 +76,18 @@ const canSubmit = computed(
  */
 const isUnconfigured = computed(() => errorCode.value === 'STORAGE_UNAVAILABLE')
 
-/** Where the list came from, shown so the cache is observable instead of invisible. */
+/**
+ * Where the list came from, shown so the cache is observable instead of invisible.
+ *
+ * Dev view only. "KV cache" and "D1 query" are answers to a question a visitor did
+ * not ask — the guestbook itself works the same either way — so in visitor view the
+ * badge is simply absent rather than reworded. Gated here rather than in the
+ * template because the technical tooltip hangs off the same element, and one null
+ * takes both.
+ */
+const { isDev } = useViewMode()
 const sourceBadge = computed(() => {
+  if (!isDev.value) return null
   if (servedFrom.value === 'kv') return { label: 'KV cache', color: 'var(--green-main)' }
   if (servedFrom.value === 'd1') return { label: 'D1 query', color: 'var(--blue-main)' }
   return null

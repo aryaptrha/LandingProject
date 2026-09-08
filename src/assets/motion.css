@@ -165,6 +165,18 @@
   --i: 8;
 }
 
+/* The same delay ladder as `.m-cascade`, but applied to an element directly
+   instead of through its parent — for a group whose members are not siblings, or
+   are conditional, so `:nth-child` cannot index them. Set `--i` inline.
+
+   Which is exactly the dev-view sections: the topology panel and the insights
+   panel arrive together when the view switches, but the guestbook sits between
+   them and stays put, so there is no parent whose children are the group. */
+.m-step {
+  animation: m-rise var(--motion-base) var(--ease-settle) backwards;
+  animation-delay: calc(var(--i, 0) * var(--motion-stagger));
+}
+
 /* Fixed widgets arrive after the content they float over, so the page reads
    content-first. One cascade length of delay, not a new duration. */
 .m-dock {
@@ -191,14 +203,17 @@
   transition: transform var(--motion-fast) steps(3, jump-none);
 }
 
-/* --- Theme reveal ------------------------------------------------------- */
+/* --- State reveal ------------------------------------------------------- */
 
 /* Pseudo-elements for a view transition are attached to the document element,
    so these rules cannot live in a scoped SFC block — this file is the only
-   place they can go. `src/utils/themeTransition.ts` drives the clip-path.
+   place they can go. `src/utils/reveal.ts` drives the clip-path.
 
-   The attribute selector matters: it limits these overrides to the theme
-   reveal, leaving any other view transition the browser's default cross-fade. */
+   `[data-reveal]` matters: it limits these overrides to this project's own two
+   reveals, leaving any other view transition the browser's default cross-fade.
+   `[data-reveal-style]` distinguishes the two — the theme toggle's circle from
+   the view switch's pixel dissolve — and is only consulted where they differ,
+   which is the last rule in this block. */
 
 /* Both snapshots are opaque and fully cover the viewport, so the default
    cross-fade would blend two complete palettes into a washed-out third one for
@@ -206,22 +221,22 @@
    sitting still underneath while the incoming one is uncovered by the circle —
    the stacked-layers arrangement the crossfade-morph rule asks for, where the
    only animated property is the boundary between the two. */
-html[data-theme-reveal]::view-transition-image-pair(root) {
+html[data-reveal]::view-transition-image-pair(root) {
   isolation: auto;
 }
 
-html[data-theme-reveal]::view-transition-old(root),
-html[data-theme-reveal]::view-transition-new(root) {
+html[data-reveal]::view-transition-old(root),
+html[data-reveal]::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
 }
 
 /* The incoming palette is clipped on top; the outgoing one is the backdrop. */
-html[data-theme-reveal]::view-transition-old(root) {
+html[data-reveal]::view-transition-old(root) {
   z-index: 0;
 }
 
-html[data-theme-reveal]::view-transition-new(root) {
+html[data-reveal]::view-transition-new(root) {
   z-index: 1;
 }
 
@@ -236,7 +251,7 @@ html[data-theme-reveal]::view-transition-new(root) {
    would uncover a background still interpolating toward the incoming palette —
    a colour caught between two themes, which is the one thing this whole approach
    exists to avoid. */
-html[data-theme-reveal] body {
+html[data-reveal] body {
   transition: none;
 }
 
@@ -246,11 +261,19 @@ html[data-theme-reveal] body {
    `opacity: 0`. Since the button sits at the circle's origin it is uncovered on
    the first frame, so the icon would read as blinking out and easing back in —
    a flinch in the one element the rule requires to hold still. Inside the reveal
-   an incoming element should simply be there, in the new palette. */
-html[data-theme-reveal] .m-fade,
-html[data-theme-reveal] .m-rise,
-html[data-theme-reveal] .m-pop,
-html[data-theme-reveal] .m-cascade > * {
+   an incoming element should simply be there, in the new palette.
+
+   Scoped to the circle, because the pixel dissolve wants the opposite. A theme
+   change re-skins elements that were already on screen, so anything animating
+   inside it is a flinch. A view change *adds and removes whole sections*, and an
+   element that was not there a moment ago has every reason to arrive — the
+   dissolve runs long enough (500ms) to hold a section cascade inside itself, and
+   letting `.m-step` and `.m-dock` play under the uncovering blocks is most of
+   what makes the switch read as one composed movement rather than a swap. */
+html[data-reveal-style='circle'] .m-fade,
+html[data-reveal-style='circle'] .m-rise,
+html[data-reveal-style='circle'] .m-pop,
+html[data-reveal-style='circle'] .m-cascade > * {
   animation: none;
 }
 

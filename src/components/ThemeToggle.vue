@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useTheme } from '../composables/useTheme'
 import { useRetroSound } from '../composables/useRetroSound'
-import { originOf, runThemeTransition } from '../utils/themeTransition'
+import { originOf, runRevealTransition } from '../utils/reveal'
 
 // This control is tri-state — day, night, and "follow system" — not a boolean
 // toggle. `useTheme` already models the third state: an explicit day/night pick
@@ -42,11 +42,11 @@ function cycleMode() {
 }
 
 // The palette change is wrapped rather than folded into `cycleMode`, which stays
-// a plain state transition that any caller can use. `runThemeTransition` decides
+// a plain state transition that any caller can use. `runRevealTransition` decides
 // on its own whether the change is worth animating, so this is the only place
 // that needs to know where the press happened.
 function onActivate() {
-  runThemeTransition(originOf(toggleRef.value), cycleMode)
+  runRevealTransition(originOf(toggleRef.value), cycleMode)
 }
 
 // The accessible name leads with the *current* mode (what a screen reader hears
