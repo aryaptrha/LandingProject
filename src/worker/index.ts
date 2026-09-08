@@ -4,6 +4,18 @@ import type { Env } from './types/env'
 
 export type { Env } from './types/env'
 
+/*
+ * Re-exported from the worker entry point because that is where the runtime looks.
+ *
+ * A `class_name` in `[[durable_objects.bindings]]` is resolved against the *entry
+ * module's* exports, not against the file the class happens to live in. Without this
+ * line the class is still compiled and bundled and every import of it type-checks —
+ * and the binding fails at startup with a message about the class not being exported,
+ * which reads like a build problem rather than a missing re-export. It has no other
+ * caller here, so it looks removable. It is not.
+ */
+export { PixelCanvas } from './durable/pixel-canvas'
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)

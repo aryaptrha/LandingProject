@@ -32,6 +32,8 @@ export interface ViewModeCopy {
   subtitle: string
   /** Skeleton label on the guestbook's LazySection — the one panel present in both views. */
   guestbookTitle: string
+  /** Skeleton label on the pixel canvas, the other panel present in both views. */
+  canvasTitle: string
   promptChips: PromptChip[]
 }
 
@@ -42,6 +44,7 @@ export const VIEW_MODE_COPY: Record<ViewMode, ViewModeCopy> = {
     title: 'aryaptrha Projects',
     subtitle: "A cozy collection of things I've built and explored.",
     guestbookTitle: 'Guestbook',
+    canvasTitle: 'Pixel Canvas',
     promptChips: [
       { label: 'Siapa kamu?', text: 'Siapa kamu?' },
       { label: 'Project favorit kamu?', text: 'Project favorit kamu apa?' },
@@ -63,6 +66,7 @@ export const VIEW_MODE_COPY: Record<ViewMode, ViewModeCopy> = {
     subtitle:
       'Vue 3 SPA on Cloudflare Workers — Hono API, D1, KV, and live edge telemetry below.',
     guestbookTitle: 'Edge Guestbook',
+    canvasTitle: 'Edge Pixel Canvas',
     promptChips: [
       { label: 'Stack-nya apa?', text: 'Stack yang kamu pakai buat situs ini apa?' },
       {

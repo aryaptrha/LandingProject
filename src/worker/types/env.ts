@@ -56,6 +56,20 @@ export interface Env {
    * `WEATHER_UNCONFIGURED` and the panel hides itself.
    */
   OPENWEATHER_API_KEY?: string
+  /**
+   * Durable Object namespace holding the shared pixel board.
+   *
+   * Optional for the same reason as `DB` and `CACHE`, though for a different cause:
+   * the binding needs no id in wrangler.toml, but it *does* need the migration in
+   * `[[migrations]]` to have been applied. Until then — and on any deploy that
+   * removes the class — the binding is absent, and `/api/canvas` answers 503 while
+   * the rest of the site carries on.
+   *
+   * Note `new_sqlite_classes`, not `new_classes`, in wrangler.toml: the free plan
+   * offers only the SQLite backend, and declaring it the other way is the classic
+   * way to make this fail at deploy time with a confusing message.
+   */
+  CANVAS?: DurableObjectNamespace
 }
 
 /** Hono generic for routes that need typed access to `c.env`. */

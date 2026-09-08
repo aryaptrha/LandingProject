@@ -75,6 +75,18 @@ export interface SiteConfig {
   guestbookNotice: string | null
   /** Master switch for the insights panel. */
   insightsEnabled: boolean
+  /**
+   * Master switch for the shared pixel canvas.
+   *
+   * False hides the panel and refuses the WebSocket upgrade, which leaves the board
+   * intact in the Durable Object's storage — this is a pause, not a wipe. The reason
+   * it exists is the same reason `guestbookEnabled` does: a shared drawing surface is
+   * a spam target, and the response to someone drawing something vile at 3am should
+   * be one `wrangler kv key put` from a phone, not a rebuild and a deploy.
+   */
+  canvasEnabled: boolean
+  /** Optional banner shown above the canvas, e.g. while it is paused. */
+  canvasNotice: string | null
 }
 
 /** What a client sends to create an entry. Validated before it reaches D1. */

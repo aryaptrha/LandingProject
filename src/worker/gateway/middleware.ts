@@ -106,8 +106,18 @@ function appendListHeader(headers: Headers, name: string, value: string): void {
  * thing on this API that a wrapper could plausibly break. So it is returned
  * untouched — no new `Response`, no added headers.
  *
+ * ## The WebSocket case, which a wrapper cannot survive at all
+ *
+ * `routes/canvas.ts` answers `/api/canvas/socket` with the 101 the Durable Object
+ * produced. That one is not a risk to be weighed but an impossibility: workerd
+ * refuses `new Response(body, { status: 101 })` outright unless the init also
+ * carries a `webSocket`, and the accepted socket hangs off the response *object*
+ * rather than its body — so rebuilding would drop the connection even if the
+ * constructor allowed it. Returned untouched, like the stream.
+ *
  * Losing a request id on the chat stream is a fair price for not risking the
- * stream; every other route on the API gets one.
+ * stream; every other route on the API gets one. The same applies to the upgrade,
+ * which has no body to put a header on anyway.
  *
  * For everything else, the body is passed to the new `Response` **by reference
  * and unread**. Nothing here awaits, decodes, or clones it — a middleware that
@@ -116,6 +126,13 @@ function appendListHeader(headers: Headers, name: string, value: string): void {
  */
 function finalize(response: Response, requestId: string, ms: number): Response {
   if (response.headers.get('content-type')?.includes('text/event-stream')) {
+    return response
+  }
+
+  // Both conditions, not just one: `webSocket` is what must not be lost, and 101 is
+  // what the `Response` constructor below would reject. Either alone would be a
+  // narrower guard than the hazard.
+  if (response.status === 101 || response.webSocket) {
     return response
   }
 

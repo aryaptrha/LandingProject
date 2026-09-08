@@ -81,3 +81,29 @@ migrations_dir = "migrations"
 [[kv_namespaces]]
 binding = "CACHE"
 id = "6a8ef3d4a0f54ddaadd3597c9e82e9af"
+
+# ---------------------------------------------------------------------------
+# Durable Object: the shared pixel canvas
+#
+# Unlike D1 and KV above there is no id to paste — a Durable Object namespace is
+# identified by its class, so this binding works on a fresh clone and on deploy
+# without any account-specific value. What it does need is the migration below.
+# ---------------------------------------------------------------------------
+
+[[durable_objects.bindings]]
+name = "CANVAS"
+class_name = "PixelCanvas"
+# Resolved against the exports of `main`, so src/worker/index.ts re-exports the
+# class. See the note there before deleting that seemingly-unused export.
+
+# `new_sqlite_classes`, emphatically not `new_classes`: the Workers Free plan offers
+# only the SQLite storage backend, and declaring a free-plan class the other way
+# fails at deploy time. The two are also not interchangeable later — the backend is
+# fixed when the class is created, so a class migrated in wrongly has to be deleted
+# and recreated, taking the board with it.
+#
+# Migrations are append-only and cumulative: never edit or reorder a tag that has
+# been deployed, add a new one.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PixelCanvas"]

@@ -22,6 +22,7 @@ import IconOpenSource from './components/icons/IconOpenSource.vue'
 const EdgeNetworkVisualization = defineAsyncComponent(() => import('./components/EdgeNetworkVisualization.vue'))
 const EdgeGuestbook = defineAsyncComponent(() => import('./components/EdgeGuestbook.vue'))
 const EdgeInsights = defineAsyncComponent(() => import('./components/EdgeInsights.vue'))
+const EdgePixelCanvas = defineAsyncComponent(() => import('./components/EdgePixelCanvas.vue'))
 const EdgeWeather = defineAsyncComponent(() => import('./components/EdgeWeather.vue'))
 const ChatContainer = defineAsyncComponent(() => import('./components/chat/ChatContainer.vue'))
 const MusicPlayerWidget = defineAsyncComponent(() => import('./components/music/MusicPlayerWidget.vue'))
@@ -326,6 +327,28 @@ onMounted(() => {
           class="grid-spacing"
         >
           <EdgeGuestbook />
+        </LazySection>
+
+        <!--
+          The canvas sits directly under the guestbook because they are the same kind of
+          thing: the two panels a visitor can leave a mark on rather than read. The
+          guestbook takes words and the canvas takes a pixel, so the cheaper one comes
+          second — a click needs less of you than a sentence does.
+
+          No `v-if`, for the guestbook's reason. It is a thing to use, and the artwork is
+          the point of it; presence and the daily quota are a readout, but they are a
+          readout *of your own turn*, which is not the telemetry visitor view drops.
+
+          The tallest skeleton on the page: a 64-cell board is square and as wide as the
+          column, and the swatch row and status line sit under it. Guessing low here
+          would cost the CLS that `LazySection` exists to avoid.
+        -->
+        <LazySection
+          min-height="620px"
+          :title="copy.canvasTitle"
+          class="grid-spacing"
+        >
+          <EdgePixelCanvas />
         </LazySection>
 
         <!--

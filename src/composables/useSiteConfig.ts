@@ -6,12 +6,16 @@ export interface SiteConfigData {
   guestbookEnabled: boolean
   guestbookNotice: string | null
   insightsEnabled: boolean
+  canvasEnabled: boolean
+  canvasNotice: string | null
 }
 
 const DEFAULTS: SiteConfigData = {
   guestbookEnabled: true,
   guestbookNotice: null,
   insightsEnabled: true,
+  canvasEnabled: true,
+  canvasNotice: null,
 }
 
 /**

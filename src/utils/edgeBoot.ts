@@ -107,19 +107,27 @@ function parseEdge(raw: unknown): EdgeStatusData | null {
 function parseConfig(raw: unknown): SiteConfigData | null {
   if (!isRecord(raw)) return null
 
-  const { guestbookEnabled, guestbookNotice, insightsEnabled } = raw
+  const { guestbookEnabled, guestbookNotice, insightsEnabled, canvasEnabled, canvasNotice } = raw
 
   if (typeof guestbookEnabled !== 'boolean') return null
   if (typeof insightsEnabled !== 'boolean') return null
+  if (typeof canvasEnabled !== 'boolean') return null
   if (guestbookNotice !== null && typeof guestbookNotice !== 'string') return null
-
-  const notice = typeof guestbookNotice === 'string' ? guestbookNotice.trim() : ''
+  if (canvasNotice !== null && typeof canvasNotice !== 'string') return null
 
   return {
     guestbookEnabled,
     insightsEnabled,
-    guestbookNotice: notice ? notice.slice(0, NOTICE_MAX_LENGTH) : null,
+    canvasEnabled,
+    guestbookNotice: trimNotice(guestbookNotice),
+    canvasNotice: trimNotice(canvasNotice),
   }
+}
+
+/** Trims and clamps a notice to the same bound the worker applies. */
+function trimNotice(value: string | null): string | null {
+  const trimmed = typeof value === 'string' ? value.trim() : ''
+  return trimmed ? trimmed.slice(0, NOTICE_MAX_LENGTH) : null
 }
 
 /**

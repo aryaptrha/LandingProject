@@ -69,8 +69,3 @@ CLAUDE.md
 # skills, a committed settings.json) can still be tracked if that's ever wanted.
 .claude/settings.local.json
 .claude/worktrees/
-
-# Cygwin/MSYS crash dumps. One of these was committed at the repo root and got
-# rewritten on every crash; a crash artifact is never worth versioning, least of
-# all inside the worker source tree.
-*.stackdump

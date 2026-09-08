@@ -28,6 +28,30 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   guestbookEnabled: true,
   guestbookNotice: null,
   insightsEnabled: true,
+  canvasEnabled: true,
+  canvasNotice: null,
+}
+
+/** Upper bound on a notice, so a runaway CLI paste cannot become the whole page. */
+const NOTICE_MAX_LENGTH = 200
+
+/**
+ * A boolean flag, or the default when the stored value is anything else.
+ *
+ * Extracted once there were four of these. The check is `typeof === 'boolean'` rather
+ * than a truthiness test for a specific reason worth not rediscovering: this document
+ * is hand-edited from a shell, and `"false"` — the string, easy to produce by
+ * forgetting that JSON booleans are unquoted — is truthy.
+ */
+function readFlag(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+/** A notice string, trimmed and clamped, or null when absent or blank. */
+function readNotice(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed ? trimmed.slice(0, NOTICE_MAX_LENGTH) : null
 }
 
 /**
@@ -54,18 +78,11 @@ export async function readSiteConfig(kv: KVNamespace | undefined): Promise<SiteC
     if (!stored || typeof stored !== 'object') return DEFAULT_SITE_CONFIG
 
     return {
-      guestbookEnabled:
-        typeof stored.guestbookEnabled === 'boolean'
-          ? stored.guestbookEnabled
-          : DEFAULT_SITE_CONFIG.guestbookEnabled,
-      guestbookNotice:
-        typeof stored.guestbookNotice === 'string' && stored.guestbookNotice.trim()
-          ? stored.guestbookNotice.trim().slice(0, 200)
-          : null,
-      insightsEnabled:
-        typeof stored.insightsEnabled === 'boolean'
-          ? stored.insightsEnabled
-          : DEFAULT_SITE_CONFIG.insightsEnabled,
+      guestbookEnabled: readFlag(stored.guestbookEnabled, DEFAULT_SITE_CONFIG.guestbookEnabled),
+      guestbookNotice: readNotice(stored.guestbookNotice),
+      insightsEnabled: readFlag(stored.insightsEnabled, DEFAULT_SITE_CONFIG.insightsEnabled),
+      canvasEnabled: readFlag(stored.canvasEnabled, DEFAULT_SITE_CONFIG.canvasEnabled),
+      canvasNotice: readNotice(stored.canvasNotice),
     }
   } catch (err) {
     console.error('Site config read failed, using defaults:', err)

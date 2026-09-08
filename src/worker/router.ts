@@ -9,6 +9,7 @@ import { config } from './routes/config'
 import { guestbook } from './routes/guestbook'
 import { insights } from './routes/insights'
 import { weather } from './routes/weather'
+import { canvas } from './routes/canvas'
 import { error } from './utils/response'
 import type { AppEnv } from './types/env'
 
@@ -44,6 +45,19 @@ api.route('/api', weather)
 api.route('/api', guestbook)
 api.route('/api', insights)
 api.route('/api', config)
+
+// Durable-Object-backed. Mounted after the storage routes because it depends on both
+// kinds of binding for different things: the Durable Object holds the board, and KV
+// holds the kill switch that decides whether to open it at all. Degrades the same way
+// — a 503 naming what is missing, with the rest of the site untouched.
+//
+// `/canvas/socket` is the only route in this worker that answers 101 rather than JSON,
+// which needed a change in the gateway rather than nothing: `finalize()` rebuilds every
+// response to attach its headers, and a rebuilt 101 both throws in workerd and loses the
+// accepted socket. It now passes the handshake straight through, as it already did for
+// SSE. Still logged — the log line reads the finalized status, so the upgrade appears as
+// a 101.
+api.route('/api', canvas)
 
 // Catch-all for unknown API routes
 api.all('/api/*', () => {
