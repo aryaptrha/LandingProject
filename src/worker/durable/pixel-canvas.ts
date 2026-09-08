@@ -14,6 +14,7 @@ import {
   type SocketAttachment,
 } from '../types/canvas'
 import type { Env } from '../types/env'
+import { readSessionId } from '../services/session.service'
 import { verifySessionToken } from '../services/token.service'
 
 /**
@@ -75,11 +76,11 @@ export class PixelCanvas implements DurableObject {
    */
   private budgetDay = ''
   /**
-   * Guards the unconfigured-secret warning so it is logged once per object lifetime
+   * Guards the anonymous-connection warning so it is logged once per object lifetime
    * rather than once per placement. A warning on every click is a warning nobody reads,
    * and on a hibernating object "once per lifetime" is already generous.
    */
-  private warnedMissingSecret = false
+  private warnedAnonymous = false
 
   constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx
@@ -208,9 +209,20 @@ export class PixelCanvas implements DurableObject {
     // when a message actually arrives.
     this.ctx.acceptWebSocket(server)
 
-    // A connection starts anonymous. Viewing needs no credential — only painting
-    // does, and the token for that arrives with the first `place` message.
-    const attachment: SocketAttachment = { sid: null, lastPlacedAt: 0 }
+    // Identity is resolved here, from the `ap_sid` cookie the document response already
+    // set on this visitor. Doing it at upgrade time rather than on the first placement is
+    // what makes painting work with no verification step: the cookie rides along on the
+    // handshake (a WebSocket upgrade is an HTTP request, and HttpOnly only stops scripts
+    // reading a cookie, not the browser sending it), so by the time anyone clicks, the
+    // quota bucket already exists.
+    //
+    // `sid:` prefixed so a cookie-derived bucket can never collide with a token-derived
+    // one, which is a bare UUID from a different issuer.
+    const cookieSid = readSessionId(request)
+    const attachment: SocketAttachment = {
+      sid: cookieSid ? `sid:${cookieSid}` : null,
+      lastPlacedAt: 0,
+    }
     server.serializeAttachment(attachment)
 
     const now = Date.now()
@@ -289,18 +301,13 @@ export class PixelCanvas implements DurableObject {
     const now = Date.now()
     const previous = this.board[idx] ?? EMPTY_CELL
 
-    // 1. Authentication, resolved once per connection and then cached in the
-    //    attachment. The token proves a human passed Turnstile within the last 24
-    //    hours, and its signed `sid` is the quota bucket — which is why the bucket
-    //    cannot be reset by clearing a cookie.
+    // 1. Identity, resolved once per connection and then cached in the attachment.
+    //    Usually already present from the upgrade's cookie; this covers the client that
+    //    sent no cookie and may be offering a token instead. It cannot fail — there is
+    //    always a bucket to attribute the pixel to — so there is no rejection here.
     let sid = attachment.sid
     if (!sid) {
-      const verified = await this.verify(msg.token)
-      if (!verified) {
-        this.reject(ws, idx, previous, 'UNAUTHORIZED', 'Verifikasi dulu ya sebelum menggambar.')
-        return
-      }
-      sid = verified
+      sid = await this.resolveSid(msg.token)
       attachment.sid = sid
       ws.serializeAttachment(attachment)
     }
@@ -431,57 +438,47 @@ export class PixelCanvas implements DurableObject {
   // --- Helpers ---------------------------------------------------------------
 
   /**
-   * Verifies a session token and returns its signed `sid`.
+   * Resolves the quota bucket for a connection that arrived without an `ap_sid` cookie.
    *
-   * Reuses the token `POST /api/session` already mints for chat, deliberately rather
-   * than adding a second credential: it is exactly the property the canvas needs
-   * ("a human solved Turnstile recently"), it is already wired into the frontend, and
-   * `verifySessionToken` already checks the signature, the expiry and the scope.
+   * Never returns null, and that is the point. An earlier version demanded a
+   * Turnstile-minted token here and rejected the placement without one, which was wrong
+   * twice over: the panel has no Turnstile widget, so the visitor was told to verify with
+   * no way to do it; and in production, where a real `TURNSTILE_SECRET_KEY` is set for the
+   * guestbook, *every* placement failed, because completing the guestbook's challenge
+   * mints nothing reusable — its token is single-use and the widget resets after each
+   * submit. A gate nobody can pass is not security, it is a broken feature.
    *
-   * That scope is `'chat'`, which now reads as a slight misnomer — it means "minted by
-   * /api/session", not "may only call /api/chat". If the two ever need to diverge, the
-   * seam is the `scope` field in `token.service.ts`; splitting it pre-emptively would
-   * mean a second Turnstile challenge for the same visitor and no security gained.
+   * So the order is: the cookie (handled at upgrade), else a token if the visitor happens
+   * to carry one from the chat, else an identity of this connection's own. Each step down
+   * costs only the *durability* of the 150/day bucket, never the cooldown and never the
+   * global budget — and the budget is the limit that actually protects the free tier.
    */
-  private async verify(token: unknown): Promise<string | null> {
-    // The secret is checked before the token, and the order is load-bearing: where no
-    // secret is configured there is nothing for a token to be verified against, so
-    // requiring one would reject every caller for failing to supply a credential that
-    // could not be checked anyway.
+  private async resolveSid(token: unknown): Promise<string> {
+    // A token is only worth checking if there is something to check it against. Where no
+    // secret is bound there is no signature to verify, so demanding one would reject
+    // honest callers and stop nobody — the same reasoning `routes/chat.ts` applies when
+    // it skips session checks under this condition.
     const secret = this.env.SESSION_SECRET || this.env.TURNSTILE_SECRET_KEY
-    if (!secret) {
-      // Nothing to verify against, so the token is ignored and the connection gets an
-      // identity of its own instead.
-      //
-      // This mirrors `routes/chat.ts`, which skips session checks entirely under the
-      // same condition, and it is the difference between a feature that works on a
-      // fresh clone and one that silently refuses every click until someone discovers
-      // it wanted a `.dev.vars`. There is nothing to forge here either: where no
-      // secret exists, no signature can be checked, so demanding one would reject
-      // honest callers and stop nobody.
-      //
-      // What is given up is only the *durability* of the quota bucket — a reconnect
-      // earns a fresh 150. The cooldown and the global daily budget are unaffected,
-      // and the budget is the limit that actually protects the free tier. Production
-      // sets `TURNSTILE_SECRET_KEY` for the guestbook, so this path is local-only in
-      // practice; if a deploy ever hits it, that warning is the thing to search for.
-      if (!this.warnedMissingSecret) {
-        this.warnedMissingSecret = true
-        console.warn(
-          'PixelCanvas: no SESSION_SECRET or TURNSTILE_SECRET_KEY bound — quota is per-connection, not per-session',
-        )
-      }
-      return `anon:${crypto.randomUUID()}`
+
+    if (secret && typeof token === 'string' && token) {
+      // IP binding is intentionally not enforced. `verifySessionToken` compares the
+      // caller's IP hash when given one, but a WebSocket outlives the request that opened
+      // it, and a mobile visitor changing networks mid-session would be silently unable to
+      // paint. The signature and the expiry are what matter.
+      const result = await verifySessionToken(token, secret)
+      const verified = result.valid ? result.payload?.sid : null
+      if (verified) return verified
+      // An invalid or expired token falls through rather than rejecting. It is the same
+      // situation as no token at all, and the visitor did nothing wrong.
     }
 
-    if (typeof token !== 'string' || !token) return null
-
-    // IP binding is intentionally not enforced here. `verifySessionToken` compares the
-    // caller's IP hash when given one, but a WebSocket outlives the request that
-    // opened it and a mobile visitor changing networks mid-session would be silently
-    // unable to paint. The token's signature and expiry are what matter.
-    const result = await verifySessionToken(token, secret)
-    return result.valid ? (result.payload?.sid ?? null) : null
+    // No cookie and no usable token: a client with cookies disabled, or a non-browser.
+    // It paints, from a bucket that lasts as long as the connection does.
+    if (!this.warnedAnonymous) {
+      this.warnedAnonymous = true
+      console.warn('PixelCanvas: connection with no ap_sid cookie — quota is per-connection')
+    }
+    return `anon:${crypto.randomUUID()}`
   }
 
   private readAttachment(ws: WebSocket): SocketAttachment {

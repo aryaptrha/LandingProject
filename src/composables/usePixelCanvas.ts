@@ -86,8 +86,13 @@ export function usePixelCanvas() {
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let attempt = 0
   let disposed = false
-  /** Session token for painting, fetched lazily on the first placement attempt. */
-  let sessionToken: string | null = null
+  /**
+   * The chat's session token, when this visitor has one. Read once, lazily.
+   *
+   * `undefined` means "not looked for yet"; `null` means "looked, none there", which is
+   * the common case and is fine — see `readSessionToken`.
+   */
+  let sessionToken: string | null | undefined
 
   /**
    * Cells this client painted but the edge has not confirmed, mapped to the colour
@@ -291,33 +296,32 @@ export function usePixelCanvas() {
   // --- Painting ---------------------------------------------------------------
 
   /**
-   * Mints the session token the worker needs to attribute a placement to a quota
-   * bucket, reusing it for the life of the page.
+   * Reads the session token the chat mints, if this visitor happens to have used it.
    *
-   * Failure is not fatal here. Where no Turnstile secret is configured the worker
-   * accepts an untokened placement (see the note in `durable/pixel-canvas.ts`), so
-   * returning null and letting the edge decide is more honest than blocking the click
-   * on a credential the server may not even want.
+   * Deliberately does *not* mint one. Minting means solving Turnstile, and the edge does
+   * not require a token to paint — it falls back to the `ap_sid` cookie every document
+   * response already sets, so a first-time visitor can paint immediately. All a token buys
+   * is a quota bucket that survives clearing cookies.
+   *
+   * An earlier version posted Cloudflare's dummy test token to `/api/session` here. That
+   * only ever works against a *test* secret key: in production, where the key is real, the
+   * mint failed, no token existed, and the edge refused every pixel with "verify first"
+   * — an instruction the panel gave no way to follow. Reading a token that may not be
+   * there, and not caring when it is not, is the honest version of that idea.
+   *
+   * The key is duplicated from `useChat.ts` rather than imported, to keep the chat's module
+   * graph out of this async chunk. If it ever drifts, the cost is a per-connection quota
+   * bucket instead of a per-session one — a degradation, not a break.
    */
-  async function ensureToken(): Promise<string | null> {
-    if (sessionToken) return sessionToken
+  function readSessionToken(): string | null {
+    if (sessionToken !== undefined) return sessionToken
     try {
-      const res = await fetch('/api/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // The dummy Turnstile token Cloudflare publishes for test keys. Where a real
-        // secret is configured this is rejected and the visitor needs the widget; the
-        // canvas then reports UNAUTHORIZED, which is the correct answer rather than a
-        // pretend success.
-        body: JSON.stringify({ turnstileToken: 'XXXX.DUMMY.TOKEN.XXXX' }),
-      })
-      if (!res.ok) return null
-      const body = (await res.json()) as { data?: { sessionToken?: string } }
-      sessionToken = body.data?.sessionToken ?? null
-      return sessionToken
+      sessionToken = sessionStorage.getItem('chat_session_token') || null
     } catch {
-      return null
+      // Storage can throw outright in a locked-down browser, not merely return null.
+      sessionToken = null
     }
+    return sessionToken
   }
 
   /**
@@ -328,17 +332,15 @@ export function usePixelCanvas() {
    * The cost is that a rejection has to undo something the visitor already saw, which is
    * what `pending` exists for.
    */
-  async function place(idx: number, color: number): Promise<void> {
+  function place(idx: number, color: number): void {
     if (readOnly.value) return
     if (!socket || socket.readyState !== WebSocket.OPEN) return
     if (!Number.isInteger(idx) || idx < 0 || idx >= board.value.length) return
     if (!Number.isInteger(color) || color <= EMPTY_CELL || color >= PALETTE_SIZE) return
 
-    const token = await ensureToken()
-
-    // Re-checked after the await: the token fetch is a round trip, and the socket may
-    // have closed or the board gone read-only while it was in flight.
-    if (readOnly.value || !socket || socket.readyState !== WebSocket.OPEN) return
+    // Synchronous, so there is no window between the guards above and the send in which
+    // the socket could close or the board could flip read-only.
+    const token = readSessionToken()
 
     // Recorded before the local paint, so the ledger holds the colour that was actually
     // on screen. Only the first pending write per cell is kept — a second click on the

@@ -65,9 +65,17 @@ export const PLACE_COOLDOWN_MS = 1500
  * read-modify-write atomicity that `services/ratelimit.service.ts` documents KV as
  * unable to provide — so this counter cannot be beaten by concurrent requests.
  *
- * Keyed on the session token's signed `sid`, never on the `ap_sid` cookie: a cookie
- * is client-controlled and a script could simply discard it to get a fresh bucket,
- * whereas a new `sid` requires solving Turnstile again.
+ * Keyed on the `ap_sid` cookie the document response already sets, and only on a
+ * Turnstile-minted token where the visitor happens to have one from the chat.
+ *
+ * The cookie is discardable, so this is a fairness measure and not a hard cap: a
+ * determined client can clear it and earn another 150. That is accepted deliberately.
+ * The alternative is a Turnstile challenge before the first pixel, which would gate a
+ * one-click delight feature behind a captcha to protect a resource whose real limit is
+ * `GLOBAL_DAILY_BUDGET` below — and that budget is unaffected by cookie resets, so the
+ * free tier stays protected either way. A pixel is one byte from a fixed palette: there
+ * is no content to moderate and no upstream call to pay for, which is what separates
+ * this from the guestbook and the chat, where Turnstile does still guard the door.
  */
 export const SESSION_DAILY_QUOTA = 150
 
@@ -99,7 +107,6 @@ export type RejectCode =
   | 'COOLDOWN'
   | 'QUOTA_EXHAUSTED'
   | 'BUDGET_EXHAUSTED'
-  | 'UNAUTHORIZED'
   | 'BAD_REQUEST'
   | 'CANVAS_DISABLED'
 
@@ -111,16 +118,20 @@ export interface PlaceMessage {
   /** Palette index. */
   color: number
   /**
-   * Signed session token from `POST /api/session`.
+   * Signed session token from `POST /api/session`, when the visitor already has one.
    *
-   * Sent in the message body rather than as a subprotocol or query parameter.
-   * A query parameter would be written into the gateway's per-request log line;
-   * a subprotocol is invisible to logs but has to be chosen at connect time, which
-   * would force every visitor through Turnstile before they could so much as *look*
-   * at the board. In the body, viewing is anonymous and only painting authenticates.
+   * Purely an upgrade, never a requirement: it makes the quota bucket durable across
+   * cookie resets for anyone who has used the chat. Without it the edge falls back to
+   * the `ap_sid` cookie, so painting works for a first-time visitor who has verified
+   * nothing.
    *
-   * Optional per message: once a token verifies, the resulting `sid` is stored in the
-   * socket's attachment and later placements may omit it.
+   * Sent in the message body rather than as a subprotocol or query parameter. A query
+   * parameter would be written into the gateway's per-request log line; a subprotocol
+   * would have to be chosen at connect time, before it is known whether the visitor
+   * will paint at all.
+   *
+   * Only read on the first placement of a connection — the resolved `sid` is then held
+   * in the socket's attachment and later messages may omit it.
    */
   token?: string
 }
@@ -199,7 +210,12 @@ export type ServerMessage =
  * session, and nothing else.
  */
 export interface SocketAttachment {
-  /** Verified session id from the token, or null while the connection is read-only. */
+  /**
+   * The quota bucket this connection paints from: `sid:<ap_sid>` for a visitor with the
+   * document's cookie, the token's signed `sid` for one carrying a chat token, or
+   * `anon:<uuid>` for a client with neither. Null only until the first placement
+   * resolves it, and on a connection whose upgrade carried no cookie.
+   */
   sid: string | null
   /** `Date.now()` of the last accepted placement, for the cooldown. */
   lastPlacedAt: number
