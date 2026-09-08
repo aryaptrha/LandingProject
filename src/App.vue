@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, onMounted, watch, defineAsyncComponent } from 'vue'
 import { vAutoAnimate } from '@formkit/auto-animate/vue'
-import gsap from 'gsap'
 import { recordVisit } from './composables/useVisitLogger'
 import { useViewMode } from './composables/useViewMode'
 import { VIEW_MODE_COPY } from './data/viewModes'
-import { prefersReducedMotion } from './utils/motion'
+import { loadGsap, prefersReducedMotion } from './utils/motion'
 import MenuCard from './components/MenuCard.vue'
 import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
 import LatencyIndicator from './components/LatencyIndicator.vue'
@@ -104,6 +103,20 @@ const menuItems = [
  */
 const railMotion = { duration: 200, easing: 'ease-out' }
 
+// Reveal bookkeeping. `revealRun` is a ticket, so a view switch that lands mid-import
+// cannot let a stale resolution tween spans that have since been replaced.
+// `revealWatchdog` is the promise that the words become visible whether or not GSAP
+// ever arrives; `null` means it has already fired or been cancelled.
+let revealRun = 0
+let revealWatchdog: number | null = null
+
+/** Clears the `.anim-word` from-state directly, for every path where GSAP will not. */
+function settleWords(words: NodeListOf<HTMLElement>): void {
+  words.forEach((word) => {
+    word.style.transform = 'translateY(0%)'
+  })
+}
+
 /**
  * The masked per-word reveal on the title and subtitle.
  *
@@ -116,28 +129,72 @@ const railMotion = { duration: 200, easing: 'ease-out' }
  * returning early. `base.css` neutralises CSS animation for those visitors, but the
  * from-state here is a plain `transform`, not an animation, so nothing else would
  * ever clear it.
+ *
+ * ## Why the engine is fetched here rather than imported at the top of the file
+ *
+ * `utils/motion.ts` is explicit that GSAP stays off the critical path, and a static
+ * `import gsap from 'gsap'` at module scope quietly broke that: it made `vendor-gsap`
+ * a dependency of the entry chunk, so Vite emitted a `modulepreload` for ~27kB gz of
+ * animation engine ahead of a header `index.html` has already pre-painted.
+ *
+ * Deferring the import puts these words behind a network fetch, though, and they are
+ * the headline. So the watchdog below is the load-bearing part, not the tween: 600ms
+ * after this runs the words sit at `y: 0%` regardless of what the import did, which is
+ * the same guarantee `useReveal` makes for every section under the fold. A header that
+ * animates late is a missing animation; a header that never arrives is a missing
+ * headline, and only one of those is survivable.
  */
 function revealHeader() {
   if (!headerRef.value) return
-  const words = headerRef.value.querySelectorAll('.anim-word')
+  const words = headerRef.value.querySelectorAll<HTMLElement>('.anim-word')
   if (!words.length) return
 
   if (prefersReducedMotion()) {
-    gsap.set(words, { y: '0%' })
+    settleWords(words)
     return
   }
 
-  gsap.fromTo(
-    words,
-    { y: '120%' },
-    {
-      y: '0%',
-      duration: 0.8,
-      ease: 'power4.out',
-      stagger: 0.05,
-      delay: 0.2 // Small delay to let the page settle
-    }
-  )
+  const run = ++revealRun
+  if (revealWatchdog !== null) window.clearTimeout(revealWatchdog)
+  revealWatchdog = window.setTimeout(() => {
+    revealWatchdog = null
+    if (run === revealRun) settleWords(words)
+  }, 600)
+
+  loadGsap()
+    .then((gsap) => {
+      if (run !== revealRun) return
+
+      if (revealWatchdog === null) {
+        // The watchdog already showed them. Running the tween now would drop the words
+        // back to 120% and re-reveal them, which reads as a glitch rather than as an
+        // entrance, so this only pins the end state they already hold.
+        gsap.set(words, { y: '0%' })
+        return
+      }
+
+      window.clearTimeout(revealWatchdog)
+      revealWatchdog = null
+      gsap.fromTo(
+        words,
+        { y: '120%' },
+        {
+          y: '0%',
+          duration: 0.8,
+          ease: 'power4.out',
+          stagger: 0.05,
+          delay: 0.2 // Small delay to let the page settle
+        }
+      )
+    })
+    .catch(() => {
+      if (run !== revealRun) return
+      if (revealWatchdog !== null) {
+        window.clearTimeout(revealWatchdog)
+        revealWatchdog = null
+      }
+      settleWords(words)
+    })
 }
 
 // The words are `v-for`ed off `subtitleWords`, so they only exist after the render
@@ -234,9 +291,12 @@ onMounted(() => {
         </LazySection>
 
         <!--
-          Weather next, and first of the three data panels, because it is the one
-          that makes the edge feel like a place: the map above says "there is a POP
-          near you", this says what the sky looks like there right now.
+          Weather next, and the one edge panel that reads the same in both views, so
+          it deliberately carries no `v-if`: a temperature and a sky are not telemetry,
+          they are just where you are. In dev view it follows the network map and
+          answers it — the map says "there is a POP near you", this says what
+          the sky looks like there. In visitor view that map is gone and this stands on
+          its own, which it can, because nothing in it needs the map to make sense.
         -->
         <LazySection
           min-height="470px"
@@ -252,10 +312,13 @@ onMounted(() => {
           the one a visitor can interact with; insights last, because it is partly
           a readout of that interaction.
 
-          Which is also why the guestbook is the one edge panel that survives visitor
-          view while the map above and the insights below it do not: it is a thing to
-          use, not a readout to admire. In visitor view it is simply the first section
-          under the cards, and only its title and its storage-source badge change.
+          Which is also why it survives visitor view while the map above and the
+          insights below it do not: it is a thing to use, not a readout to admire.
+          Weather survives on the same reasoning from the other end — nothing to
+          use, but nothing that reads as telemetry either. What visitor view drops is
+          the middle: panels that only land if you already care how the edge works. So
+          in visitor view the guestbook follows the weather under the cards, and only
+          its title and its storage-source badge change.
         -->
         <LazySection
           min-height="450px"
