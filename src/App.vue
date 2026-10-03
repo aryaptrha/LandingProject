@@ -77,12 +77,12 @@ const menuItems = [
     disabled: false,
   },
   {
-    title: 'Soon',
-    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+    title: 'QR Code Maker',
+    description: 'A browser-based QR code generator with square, rounded, and dot styles, custom colors, a centered logo, a low-contrast warning, and PNG or SVG export.',
     icon: IconOpenSource,
     color: 'var(--green-light)',
-    link: '',
-    disabled: true,
+    link: 'https://aryaptrha.github.io/qrcode-maker/',
+    disabled: false,
   },
 ]
 
