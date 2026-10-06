@@ -84,6 +84,14 @@ const menuItems = [
     link: 'https://aryaptrha.github.io/qrcode-maker/',
     disabled: false,
   },
+  {
+    title: 'MD Reader',
+    description: 'A customizable, read-only Markdown viewer built with React and TypeScript. It renders GitHub-Flavored Markdown, syntax-highlighted code blocks, and live Mermaid diagrams, with reading themes, a table of contents, and a print view.',
+    icon: IconOpenSource,
+    color: 'var(--green-light)',
+    link: 'https://aryaptrha.github.io/mdreader/',
+    disabled: false,
+  },
 ]
 
 /*
