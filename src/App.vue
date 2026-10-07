@@ -23,6 +23,7 @@ const EdgeNetworkVisualization = defineAsyncComponent(() => import('./components
 const EdgeGuestbook = defineAsyncComponent(() => import('./components/EdgeGuestbook.vue'))
 const EdgeInsights = defineAsyncComponent(() => import('./components/EdgeInsights.vue'))
 const EdgePixelCanvas = defineAsyncComponent(() => import('./components/EdgePixelCanvas.vue'))
+const MyRun = defineAsyncComponent(() => import('./components/MyRun.vue'))
 const EdgeWeather = defineAsyncComponent(() => import('./components/EdgeWeather.vue'))
 const ChatContainer = defineAsyncComponent(() => import('./components/chat/ChatContainer.vue'))
 const MusicPlayerWidget = defineAsyncComponent(() => import('./components/music/MusicPlayerWidget.vue'))
@@ -338,18 +339,38 @@ onMounted(() => {
         </LazySection>
 
         <!--
-          The canvas sits directly under the guestbook because they are the same kind of
-          thing: the two panels a visitor can leave a mark on rather than read. The
-          guestbook takes words and the canvas takes a pixel, so the cheaper one comes
-          second — a click needs less of you than a sentence does.
+          The one section about the person rather than the site: the last three runs
+          off the owner's Garmin. It goes between the two leave-a-mark panels on
+          purpose — after the guestbook has asked a visitor for a sentence and before
+          the canvas asks for a pixel, a bit of the owner's day reads as a turn in
+          the conversation rather than a stats dump at the bottom of the page.
+
+          No `v-if`, for the weather's reason: a run is not telemetry. The skeleton
+          is the tallest on the page because the panel is: measured on desktop with
+          slot 1 open on a run that has splits. A run without splits or running
+          dynamics comes in shorter, and a phone, where every card stacks, taller.
+        -->
+        <LazySection
+          min-height="1240px"
+          title="My Run"
+          class="grid-spacing"
+        >
+          <MyRun />
+        </LazySection>
+
+        <!--
+          The canvas pairs with the guestbook, one run panel apart, because they are the
+          same kind of thing: the two panels a visitor can leave a mark on rather than
+          read. The guestbook takes words and the canvas takes a pixel, so the cheaper
+          one comes second — a click needs less of you than a sentence does.
 
           No `v-if`, for the guestbook's reason. It is a thing to use, and the artwork is
           the point of it; presence and the daily quota are a readout, but they are a
           readout *of your own turn*, which is not the telemetry visitor view drops.
 
-          The tallest skeleton on the page: a 64-cell board is square and as wide as the
-          column, and the swatch row and status line sit under it. Guessing low here
-          would cost the CLS that `LazySection` exists to avoid.
+          The second-tallest skeleton on the page, after My Run's: a 64-cell board is
+          square and as wide as the column, and the swatch row and status line sit under
+          it. Guessing low here would cost the CLS that `LazySection` exists to avoid.
         -->
         <LazySection
           min-height="620px"

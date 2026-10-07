@@ -11,6 +11,7 @@ import { insights } from './routes/insights'
 import { weather } from './routes/weather'
 import { garminSync } from './routes/garminSync'
 import { canvas } from './routes/canvas'
+import { runs } from './routes/runs'
 import { error } from './utils/response'
 import type { AppEnv } from './types/env'
 
@@ -52,6 +53,10 @@ api.route('/api', garminSync)
 api.route('/api', guestbook)
 api.route('/api', insights)
 api.route('/api', config)
+
+// Also KV-backed, but the namespace belongs to the persona backend, whose Garmin
+// sync writes it. This worker only reads it — see the binding in wrangler.toml.
+api.route('/api', runs)
 
 // Durable-Object-backed. Mounted after the storage routes because it depends on both
 // kinds of binding for different things: the Durable Object holds the board, and KV

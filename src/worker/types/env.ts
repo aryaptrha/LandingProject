@@ -21,6 +21,14 @@ export interface Env {
    * config store. Optional for the same reason as `DB`.
    */
   CACHE?: KVNamespace
+  /**
+   * The persona backend's KV namespace, holding the Garmin `running-stats` snapshot.
+   *
+   * Read-only from this worker: personal-chat's sync job is the only writer, and
+   * the `/api/runs` route only ever calls `get`. Optional like the rest — absent,
+   * `/api/runs` answers 503 `RUNS_UNAVAILABLE` and the "My Run" panel hides itself.
+   */
+  RUNNING_STATS?: KVNamespace
   /** Base URL or full endpoint of the external Arya persona backend. Set via `wrangler secret put`. */
   PERSONA_API_URL?: string
   /** Optional bearer token for the persona backend. Stays server-side, never in the bundle. */

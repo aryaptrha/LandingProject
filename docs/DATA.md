@@ -116,6 +116,19 @@ because a request genuinely lacking `cf` is possible and the aggregates filter
 The two-server workflow (`npm run dev` for Vite plus `npm run cf` for the worker)
 still applies; Vite proxies `/api` to `:8788`.
 
+**The "My Run" panel starts empty locally.** Its `RUNNING_STATS` namespace is the
+persona backend's, and `wrangler dev` gives it the same empty local copy as the
+others, so the panel shows "Belum ada lari tercatat" until the key is seeded. To
+see real runs, copy production's snapshot down (needs `wrangler login`):
+
+```sh
+npx wrangler kv key get running-stats --binding RUNNING_STATS --remote > running-stats.json
+npx wrangler kv key put running-stats --binding RUNNING_STATS --local --path running-stats.json
+```
+
+Only ever `--local` on the `put`. In production this key belongs to
+personal-chat's sync, which overwrites it every two hours.
+
 ## What lives where, and why
 
 The split is not arbitrary. The rule: **D1 for anything that must survive and be
@@ -132,6 +145,7 @@ queryable, KV for anything read far more often than it changes.**
 | Rate-limit counters | KV | Short-lived, expiring, never worth a durable row |
 | Visit dedupe markers | KV | Expiring by nature — the TTL *is* the logic |
 | Site config / kill switch | KV | Tiny, read constantly, written from a phone at 2am |
+| Garmin running stats | KV (`RUNNING_STATS`, not ours) | One snapshot the persona backend's sync writes; this worker only reads it |
 
 A primary-key lookup is deliberately **not** cached. Putting KV in front of one
 would add a network hop to save nothing.
@@ -215,6 +229,13 @@ Three conventions worth knowing:
 Only cached *values* carry the version prefix. Rate-limit, dedupe, and breaker keys
 do not — they are ephemeral and expire faster than any deploy.
 
+Everything above lives in `CACHE`. The one key this worker reads from elsewhere is
+`running-stats` in `RUNNING_STATS`: no TTL, written only by aryaptrha/personal-chat's
+`garmin-sync` workflow, read by `GET /api/runs` with `cacheTtl: 60`. Its shape is
+owned by that repo (`scripts/garmin-sync/sync.py`); `runs.service.ts` reads version
+1 only and copies a whitelist of fields, so a field the sync adds later is not
+published until someone adds it there.
+
 ## API surface
 
 | Method | Path | Notes |
@@ -226,12 +247,15 @@ do not — they are ephemeral and expire faster than any deploy.
 | `GET` | `/api/config` | Feature flags. Always answers, defaults included |
 | `GET` | `/api/visitor` | Unchanged response; now also logs the visit in `waitUntil` |
 | `GET` | `/api/weather` | Through the gateway: 600s KV cache, rate limited, `503 WEATHER_UNCONFIGURED` without a key |
+| `GET` | `/api/runs` | Latest three runs from the Garmin snapshot. `Cache-Control: public, max-age=300`; `503 RUNS_UNAVAILABLE` without the binding or on an unknown snapshot version |
 
 Every response uses the standard envelope (`{ success, data }` /
 `{ success, error: { message, code } }`). Codes the front end branches on:
 
 - `STORAGE_UNAVAILABLE` (503) — bindings not wired yet. The UI shows a setup hint
   pointing here, not a red error.
+- `RUNS_UNAVAILABLE` (503) — no running stats this deploy can read. The "My Run"
+  panel hides itself; `RUNS_READ_FAILED` (502) is the retryable one.
 - `GUESTBOOK_DISABLED` (403) — kill switch is on.
 - `RATE_LIMITED` (429) — with `Retry-After` and `RateLimit-*`.
 - `VALIDATION_FAILED` (400) — message is safe to show to the visitor.

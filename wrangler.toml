@@ -87,6 +87,21 @@ migrations_dir = "migrations"
 binding = "CACHE"
 id = "6a8ef3d4a0f54ddaadd3597c9e82e9af"
 
+# KV, but not ours: the persona backend's running stats. aryaptrha/personal-chat
+# owns this namespace — its garmin-sync workflow overwrites one `running-stats`
+# snapshot every two hours (or when the owner presses Sync in the chat header),
+# and its chat reads the same key. This worker only ever reads it, for the
+# "My Run" panel; nothing here may `put` to it, or the next sync would quietly
+# undo the write and the persona would read whatever was left in between.
+#
+# A real id rather than a placeholder, unlike the two above, because the
+# namespace already exists on the account. `wrangler dev` still keeps a local,
+# empty copy under .wrangler/state, so locally the panel shows its empty state
+# until the key is seeded — see docs/DATA.md.
+[[kv_namespaces]]
+binding = "RUNNING_STATS"
+id = "d541de060fd749429ac1cc94e0f28ab6"
+
 # ---------------------------------------------------------------------------
 # Durable Object: the shared pixel canvas
 #

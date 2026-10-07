@@ -62,6 +62,75 @@ export interface InsightsData {
 }
 
 /**
+ * Per-lap readings from the watch. Every field is null when the watch did not
+ * record it — running dynamics in particular usually need a chest strap or pod.
+ */
+export interface RunSplit {
+  distanceKm: number
+  /** `"M:SS"`, or `"H:MM:SS"` from an hour up. A string because the sync formats it. */
+  duration: string
+  /** `"M:SS/km"`, or null when the lap had no usable speed. */
+  pace: string | null
+  avgHr: number | null
+  cadence: number | null
+  strideLengthM: number | null
+  verticalOscillationCm: number | null
+  verticalRatio: number | null
+  groundContactMs: number | null
+  avgPower: number | null
+  elevationGainM: number | null
+}
+
+/** Garmin's training effect, both scales 0.0–5.0. */
+export interface RunTrainingEffect {
+  aerobic: number | null
+  anaerobic: number | null
+  /** Garmin's own name for the session, e.g. "Tempo" or "Aerobic base". */
+  label: string | null
+}
+
+/**
+ * One run as `/api/runs` publishes it.
+ *
+ * A whitelist, not a pass-through: `runs.service.ts` copies these fields by name
+ * out of the persona backend's snapshot. The snapshot is already curated for
+ * publishing, but it is curated by another repo, so a field it grows later should
+ * have to be added here on purpose before it reaches the page.
+ */
+export interface PublicRun {
+  /** Local calendar date of the run, `YYYY-MM-DD`, in `RunsData.timezone`. No time. */
+  date: string
+  distanceKm: number
+  duration: string
+  pace: string | null
+  avgHr: number | null
+  maxHr: number | null
+  cadence: number | null
+  maxCadence: number | null
+  elevationGainM: number | null
+  strideLengthM: number | null
+  verticalOscillationCm: number | null
+  verticalRatio: number | null
+  groundContactMs: number | null
+  avgPower: number | null
+  trainingEffect: RunTrainingEffect | null
+  trainingLoad: number | null
+  /** Time in heart-rate zones 1 to 5, as duration strings. */
+  hrZones: string[] | null
+  splits: RunSplit[] | null
+}
+
+/** The latest runs, newest first. */
+export interface RunsData {
+  /** At most three. Empty until the first sync has written a snapshot. */
+  runs: PublicRun[]
+  /** When the sync wrote the snapshot, null when it never has. */
+  generatedAt: string | null
+  /** IANA zone the run dates are local to, e.g. `Asia/Jakarta`. */
+  timezone: string
+}
+
+/**
  * Runtime site configuration held in KV, editable without a deploy.
  *
  * Read on every request to the features it gates, so it is fetched with a

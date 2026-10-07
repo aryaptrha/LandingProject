@@ -69,3 +69,4 @@ CLAUDE.md
 # skills, a committed settings.json) can still be tracked if that's ever wanted.
 .claude/settings.local.json
 .claude/worktrees/
+.vs/ 
