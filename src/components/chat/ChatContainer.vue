@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useChat } from '../../composables/useChat'
+import { useGarminSync } from '../../composables/useGarminSync'
 import { useMobilePanel } from '../../composables/useMobilePanels'
 import { useRetroSound } from '../../composables/useRetroSound'
 import TurnstileWidget from '../TurnstileWidget.vue'
@@ -29,6 +30,11 @@ const {
 } = useChat()
 
 const { playPop, playToggle, playSuccess, playError } = useRetroSound()
+
+// Owner-only; `garminSync` is null for everyone else and the button never renders.
+// Lives here rather than in ChatHeader so a sync keeps being followed while the
+// popup is closed.
+const { view: garminSync, start: startGarminSync } = useGarminSync()
 
 const isOpen = ref(false)
 const turnstileWidgetRef = ref<InstanceType<typeof TurnstileWidget> | null>(null)
@@ -159,9 +165,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onPopupKeydown))
         <!-- Header -->
         <ChatHeader
           :user-avatar-id="userAvatarId"
+          :sync-state="garminSync"
           @close="isOpen = false"
           @clear-chat="clearMessages"
           @open-avatar-picker="openAvatarPicker"
+          @sync-garmin="startGarminSync"
         />
 
         <!-- Avatar Picker Overlay -->

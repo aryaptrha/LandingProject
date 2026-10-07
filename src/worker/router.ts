@@ -9,6 +9,7 @@ import { config } from './routes/config'
 import { guestbook } from './routes/guestbook'
 import { insights } from './routes/insights'
 import { weather } from './routes/weather'
+import { garminSync } from './routes/garminSync'
 import { canvas } from './routes/canvas'
 import { error } from './utils/response'
 import type { AppEnv } from './types/env'
@@ -39,6 +40,12 @@ api.route('/api', session)
 // owns the timeout, the retry, the KV cache and the circuit breaker — the route
 // itself only decides what a failure looks like to the browser.
 api.route('/api', weather)
+
+// Owner-only. Starts the Garmin sync workflow on GitHub (also via gateway/upstream.ts)
+// so the persona has fresh running stats. Answers 404 unless OWNER_KEY and
+// GITHUB_ACTIONS_TOKEN are both set, so on a deploy without them it is
+// indistinguishable from the catch-all below.
+api.route('/api', garminSync)
 
 // Storage-backed routes. These are the only ones that touch D1 or KV, and each
 // degrades to a 503 naming the missing binding rather than failing the request.

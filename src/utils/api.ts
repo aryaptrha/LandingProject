@@ -102,12 +102,20 @@ export function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
  * `credentials: 'same-origin'` is the default for same-origin requests, but stated
  * explicitly because the session cookie the worker sets depends on it and a future
  * reader should not have to know the default to see that.
+ *
+ * `init` adds headers or a signal; `useGarminSync` needs both, for the owner's
+ * Bearer key. Headers are a plain record so they can be merged by spreading.
  */
-export function apiPost<T>(path: string, body: unknown): Promise<T> {
+export function apiPost<T>(
+  path: string,
+  body: unknown,
+  init?: { headers?: Record<string, string>; signal?: AbortSignal },
+): Promise<T> {
   return request<T>(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
     credentials: 'same-origin',
     body: JSON.stringify(body),
+    signal: init?.signal,
   })
 }

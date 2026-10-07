@@ -73,3 +73,18 @@ TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 #   npx wrangler secret put OPENWEATHER_API_KEY
 # ---------------------------------------------------------------------------
 OPENWEATHER_API_KEY=your_openweather_key_here
+
+# ---------------------------------------------------------------------------
+# Owner-only Garmin sync button (Worker Secrets)
+#
+# OWNER_KEY: 32+ random characters. Open http://localhost:5173/#owner=<key> once
+# and the chat header shows the sync button.
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+#
+# GITHUB_ACTIONS_TOKEN: fine-grained PAT, repository aryaptrha/personal-chat only,
+# permission Actions: Read and write. A real token starts a real sync, even locally.
+#
+# Leave both unset and /api/owner/garmin-sync answers 404. See docs/DEPLOYMENT.md.
+# ---------------------------------------------------------------------------
+# OWNER_KEY=
+# GITHUB_ACTIONS_TOKEN=

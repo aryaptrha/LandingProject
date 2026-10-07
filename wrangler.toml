@@ -46,6 +46,11 @@ port = 8788
 #   OPENWEATHER_API_KEY  - free-tier OpenWeather key for /api/weather. Absent, the
 #                          route answers 503 WEATHER_UNCONFIGURED and the panel
 #                          hides itself, which is the intended unconfigured state.
+#   OWNER_KEY            - 32+ random characters; gates /api/owner/*. The owner
+#                          opens https://aryaptrha.fun/#owner=<key> once per device.
+#   GITHUB_ACTIONS_TOKEN - fine-grained PAT, aryaptrha/personal-chat only, with
+#                          Actions: Read and write. Starts the Garmin sync.
+#                          Without both, /api/owner/garmin-sync answers 404.
 
 # ---------------------------------------------------------------------------
 # Storage bindings

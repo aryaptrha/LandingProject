@@ -71,6 +71,24 @@ export const UPSTREAMS = {
   },
 
   /**
+   * GitHub's REST API, for the owner-only Garmin sync in `routes/garminSync.ts`.
+   *
+   * `retries: 0` is the decision that matters. The one write here is a
+   * workflow_dispatch, and a dispatch whose response was lost to a timeout may
+   * still have started a run — retrying it would start a second one against the
+   * same Garmin session. The route's "already running" check covers the owner
+   * pressing the button again; the gateway must not do it behind their back.
+   * Nothing is cached: every call asks about a run whose state is changing.
+   */
+  github: {
+    origin: 'https://api.github.com',
+    timeoutMs: 8000,
+    retries: 0,
+    cacheTtlSeconds: 0,
+    breaker: { failureThreshold: 5, cooldownSeconds: 60 },
+  },
+
+  /**
    * The Arya persona backend behind /api/chat.
    *
    * Declared, deliberately unused. `routes/chat.ts` still calls it directly, and

@@ -57,6 +57,23 @@ export interface Env {
    */
   OPENWEATHER_API_KEY?: string
   /**
+   * Owner key for `/api/owner/*`, the routes only the site owner may call.
+   *
+   * The owner hands it to a browser once through `#owner=<key>` (see
+   * `composables/useOwner.ts`) and that browser sends it as a Bearer token. At
+   * least 32 characters; anything shorter is treated as unset, so a placeholder
+   * can never become a guessable gate. Absent, every owner route answers 404.
+   */
+  OWNER_KEY?: string
+  /**
+   * Fine-grained GitHub token that starts the Garmin sync workflow.
+   *
+   * Scope it to the one repository (aryaptrha/personal-chat) with only
+   * *Actions: Read and write* — enough to dispatch `garmin-sync.yml` and read its
+   * runs, nothing that touches code. Absent, `/api/owner/garmin-sync` answers 404.
+   */
+  GITHUB_ACTIONS_TOKEN?: string
+  /**
    * Durable Object namespace holding the shared pixel board.
    *
    * Optional for the same reason as `DB` and `CACHE`, though for a different cause:

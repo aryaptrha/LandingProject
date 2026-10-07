@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(npm:*)",
+      "Shell(node -d node_modules)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

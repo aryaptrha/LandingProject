@@ -45,6 +45,8 @@ Three worker vars, documented in `wrangler.toml` and in `.dev.vars.example`:
 | `PERSONA_ORIGIN` | **No — omit in production** | Override for the origin presented upstream |
 | `TURNSTILE_SECRET_KEY` | For bot verification | Cloudflare Turnstile secret key for server-side siteverify |
 | `TURNSTILE_HOSTNAMES` | Optional | Comma-separated allowed hostnames for Turnstile |
+| `OWNER_KEY` | For the Garmin sync button | 32+ random characters that identify the owner's browsers |
+| `GITHUB_ACTIONS_TOKEN` | For the Garmin sync button | Fine-grained PAT that starts `garmin-sync.yml` in personal-chat |
 
 ```bash
 npx wrangler secret put PERSONA_API_URL
@@ -73,6 +75,35 @@ To inspect or remove:
 npx wrangler secret list
 npx wrangler secret delete PERSONA_API_KEY
 ```
+
+### Garmin sync button (owner only)
+
+The chat header gets a ⟳ button, for the owner only, that runs the persona
+backend's Garmin sync workflow on GitHub (`POST /api/owner/garmin-sync`, in
+`src/worker/routes/garminSync.ts`). Two secrets, and the route answers 404 until
+both are set:
+
+1. **`GITHUB_ACTIONS_TOKEN`.** GitHub → Settings → Developer settings →
+   Fine-grained tokens. Repository access: *Only select repositories →
+   aryaptrha/personal-chat*. Permissions: *Actions: Read and write*, nothing else.
+   Give it an expiry and set a reminder; once it lapses the button reports
+   `GITHUB_AUTH`.
+2. **`OWNER_KEY`.** Any 32+ character random string:
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+   npx wrangler secret put OWNER_KEY
+   npx wrangler secret put GITHUB_ACTIONS_TOKEN
+   ```
+
+Then open `https://aryaptrha.fun/#owner=<key>` once on each of your devices. The
+key moves into that browser's localStorage and leaves the address bar, and the
+button appears. `#owner=` with nothing after it removes it again. To lock out
+every browser at once, put a new `OWNER_KEY`; each old browser drops its key on
+its next 401.
+
+The worker allows one run at a time, a 2-minute cooldown after a successful run,
+and 30 owner requests per 10 minutes per IP.
 
 ### The rule that matters
 
@@ -164,6 +195,7 @@ versioned and are unaffected.
 - [ ] `npx wrangler secret put PERSONA_API_URL` (after the first deploy)
 - [ ] `npx wrangler secret put PERSONA_API_KEY` if upstream requires auth
 - [ ] `npx wrangler secret put TURNSTILE_SECRET_KEY` (Cloudflare Turnstile secret)
+- [ ] Optional: `OWNER_KEY` + `GITHUB_ACTIONS_TOKEN` for the Garmin sync button
 - [ ] `PERSONA_ORIGIN` deliberately **not** set
 - [ ] Custom domain attached
 - [ ] Turnstile widget configured with production domain & `VITE_TURNSTILE_SITE_KEY` set in build env

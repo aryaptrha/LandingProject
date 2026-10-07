@@ -284,8 +284,10 @@ export async function fetchUpstream<T>(
       }
 
       // Decode inside the try: a 200 carrying HTML (a captive portal, an upstream
-      // error page) is a failure of this call, not a success with odd data.
-      const data = (await response.json()) as T
+      // error page) is a failure of this call, not a success with odd data. A 204
+      // has no body to decode and is a success all the same — GitHub's dispatch
+      // answered that way before it started returning the run id.
+      const data = (response.status === 204 ? null : await response.json()) as T
 
       await settle(recordSuccess(kv, id, policy), waitUntil)
       await settle(writeCache(kv, key, data, policy.cacheTtlSeconds), waitUntil)
