@@ -9,6 +9,7 @@ defineProps<{
   color: string
   link?: string
   disabled?: boolean
+  featured?: boolean
 }>()
 
 const { playBlip, playError } = useRetroSound()
@@ -18,6 +19,7 @@ const { playBlip, playError } = useRetroSound()
   <a
     v-if="!disabled"
     class="menu-card"
+    :class="{ 'menu-card--featured': featured }"
     :style="{ '--accent': color }"
     :href="link"
     target="_blank"
@@ -34,6 +36,7 @@ const { playBlip, playError } = useRetroSound()
   <div
     v-else
     class="menu-card menu-card--disabled"
+    :class="{ 'menu-card--featured': featured }"
     :style="{ '--accent': color }"
     aria-disabled="true"
     @click="playError"
@@ -162,5 +165,35 @@ const { playBlip, playError } = useRetroSound()
   font-size: 0.65rem;
   font-weight: 700;
   color: var(--text-dark);
+}
+
+/*
+ * Featured cards span the whole grid, so theirs is the one layout in the set
+ * with room to lie down: icon, title, then the description running out along
+ * the row. The breakpoint matches the span itself — below it the card is an
+ * ordinary column and the stacked layout above is already right.
+ *
+ * The title keeps its intrinsic width (`flex: none`) so the description takes
+ * whatever is left over, and the icon sits still at 48px: the sprite inside it
+ * is 32px of hand-authored pixel art, and scaling that to fill a larger tile
+ * would land it off the pixel grid.
+ */
+@media (min-width: 1024px) {
+  .menu-card--featured {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-xl);
+    padding: var(--space-xl);
+  }
+
+  .menu-card--featured .menu-card__title {
+    flex: none;
+    font-size: 1.4rem;
+  }
+
+  .menu-card--featured .menu-card__description {
+    flex: 1;
+    max-width: 62ch;
+  }
 }
 </style>

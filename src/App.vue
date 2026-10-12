@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, onMounted, watch, defineAsyncComponent } from 'vue'
+import { computed, nextTick, ref, onMounted, watch, defineAsyncComponent, type Component } from 'vue'
 import { vAutoAnimate } from '@formkit/auto-animate/vue'
 import { recordVisit } from './composables/useVisitLogger'
 import { useViewMode } from './composables/useViewMode'
@@ -17,6 +17,7 @@ import IconBackend from './components/icons/IconBackend.vue'
 import IconMobile from './components/icons/IconMobile.vue'
 import IconDesign from './components/icons/IconDesign.vue'
 import IconOpenSource from './components/icons/IconOpenSource.vue'
+import IconMusic from './components/icons/IconMusic.vue'
 
 // Async-loaded heavy below-the-fold and floating components
 const EdgeNetworkVisualization = defineAsyncComponent(() => import('./components/EdgeNetworkVisualization.vue'))
@@ -44,7 +45,17 @@ const copy = computed(() => VIEW_MODE_COPY[mode.value])
 const titleWords = computed(() => copy.value.title.split(' '))
 const subtitleWords = computed(() => copy.value.subtitle.split(' '))
 
-const menuItems = [
+interface MenuItem {
+  title: string
+  description: string
+  icon: Component
+  color: string
+  link: string
+  disabled: boolean
+  featured?: boolean
+}
+
+const menuItems: MenuItem[] = [
   {
     title: 'Personal Website',
     description: 'A personal website built in HTML, CSS, and Vanilla JavaScript, showcasing my portfolio and projects. It is designed to be fast, responsive, and accessible.',
@@ -68,6 +79,15 @@ const menuItems = [
     color: 'var(--lavender-light)',
     link: 'https://kecha.vercel.app/',
     disabled: false,
+  },
+  {
+    title: 'Dari Atas Freyana',
+    description: 'An interactive music video for JKT48\'s "Dari Atas Freyana" from Request Hour 2026, with lyric captions timed to the track that animate in as it plays. Built with React, TypeScript, and Motion.',
+    icon: IconMusic,
+    color: 'var(--yellow-main)',
+    link: 'https://dari-atas-freyana.vercel.app/',
+    disabled: false,
+    featured: true,
   },
   {
     title: 'Basic CRUD Fullstack App',
@@ -269,6 +289,7 @@ onMounted(() => {
           <div
             v-for="(item, index) in menuItems"
             :key="index"
+            :class="{ 'landing__cell--featured': item.featured }"
           >
             <MenuCard
               :title="item.title"
@@ -277,6 +298,7 @@ onMounted(() => {
               :color="item.color"
               :link="item.link"
               :disabled="item.disabled"
+              :featured="item.featured"
               role="listitem"
             />
           </div>
@@ -535,9 +557,40 @@ onMounted(() => {
   }
 }
 
+/*
+ * Tablet only, where two columns and an odd card count leave the last card
+ * alone on its row. Spanning it and pinning it back to one column's width
+ * centres it, so the row reads as a decision rather than as a grid that ran
+ * out — and `:nth-child(odd)` switches the whole thing off by itself the
+ * moment the count is even.
+ *
+ * Bounded above, and that bound is the point: at three columns an odd count no
+ * longer means a lone last card, so the same span would take a row the grid
+ * had already filled and shove one card past it. One column cannot strand a
+ * card at all, which is why the base grid needs none of this either.
+ */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .landing__grid > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    width: calc(50% - var(--space-lg) / 2);
+    justify-self: center;
+  }
+}
+
 @media (min-width: 1024px) {
   .landing__grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  /*
+   * The featured card takes a row to itself, which at three columns is the row
+   * the other six would otherwise have left two-thirds empty: three cards,
+   * the video, then three more. Deliberately desktop-only — at two columns the
+   * same span would strand a gap behind it, and the card is already full
+   * width at one.
+   */
+  .landing__cell--featured {
+    grid-column: 1 / -1;
   }
 }
 </style>
