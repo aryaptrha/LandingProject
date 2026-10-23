@@ -81,6 +81,22 @@ const menuItems: MenuItem[] = [
     disabled: false,
   },
   {
+    title: 'The Robot and Me',
+    description: 'A catalogue-style portfolio where every exhibit keeps its own interface, palette, and typeface. Each experiment documents how it was made with machines — the measurements, the machine decisions, and the failures — instead of hiding them.',
+    icon: IconDesign,
+    color: 'var(--blue-light)',
+    link: 'https://cmdc-nine.vercel.app/',
+    disabled: false,
+  },
+  {
+    title: 'aftertone',
+    description: 'A bilingual music journal that digs into the emotion, symbolism, narrative, and possible interpretations behind songs. Each entry is an in-depth reading, and the archive is organised by theme and mood.',
+    icon: IconMusic,
+    color: 'var(--pink-main)',
+    link: 'https://aftertone.aryaptrha.fun/id/',
+    disabled: false,
+  },
+  {
     title: 'Dari Atas Freyana',
     description: 'An interactive music video for JKT48\'s "Dari Atas Freyana" from Request Hour 2026, with lyric captions timed to the track that animate in as it plays. Built with React, TypeScript, and Motion.',
     icon: IconMusic,
