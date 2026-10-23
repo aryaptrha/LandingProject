@@ -61,7 +61,7 @@ const menuItems: MenuItem[] = [
     description: 'A personal website built in HTML, CSS, and Vanilla JavaScript, showcasing my portfolio and projects. It is designed to be fast, responsive, and accessible.',
     icon: IconDesign,
     color: 'var(--pink-light)',
-    link: 'https://aryaptrha.github.io/yaya/',
+    link: 'https://yaya.aryaptrha.fun',
     disabled: false,
   },
   {
@@ -77,7 +77,7 @@ const menuItems: MenuItem[] = [
     description: 'A full-stack web application for my hobby project. Built with Next.js, TypeScript, Tailwind CSS, and Supabase, with a focus on real-time collaboration and user experience.',
     icon: IconBackend,
     color: 'var(--lavender-light)',
-    link: 'https://kecha.vercel.app/',
+    link: 'https://kecha.aryaptrha.fun',
     disabled: false,
   },
   {
@@ -101,7 +101,7 @@ const menuItems: MenuItem[] = [
     description: 'An interactive music video for JKT48\'s "Dari Atas Freyana" from Request Hour 2026, with lyric captions timed to the track that animate in as it plays. Built with React, TypeScript, and Motion.',
     icon: IconMusic,
     color: 'var(--yellow-main)',
-    link: 'https://dari-atas-freyana.vercel.app/',
+    link: 'https://freyana.aryaptrha.fun',
     disabled: false,
     featured: true,
   },
@@ -118,7 +118,7 @@ const menuItems: MenuItem[] = [
     description: 'A browser-based QR code generator with square, rounded, and dot styles, custom colors, a centered logo, a low-contrast warning, and PNG or SVG export.',
     icon: IconOpenSource,
     color: 'var(--green-light)',
-    link: 'https://aryaptrha.github.io/qrcode-maker/',
+    link: 'https://qrcode.aryaptrha.fun',
     disabled: false,
   },
   {
@@ -126,7 +126,7 @@ const menuItems: MenuItem[] = [
     description: 'A customizable, read-only Markdown viewer built with React and TypeScript. It renders GitHub-Flavored Markdown, syntax-highlighted code blocks, and live Mermaid diagrams, with reading themes, a table of contents, and a print view.',
     icon: IconOpenSource,
     color: 'var(--green-light)',
-    link: 'https://aryaptrha.github.io/mdreader/',
+    link: 'https://mdreader.aryaptrha.fun',
     disabled: false,
   },
 ]
