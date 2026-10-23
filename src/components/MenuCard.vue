@@ -9,7 +9,10 @@ defineProps<{
   color: string
   link?: string
   disabled?: boolean
-  featured?: boolean
+  /** The grid is in arrange mode: the card jiggles and can be dragged. */
+  arrangeable?: boolean
+  /** This is the card currently under the pointer. */
+  dragging?: boolean
 }>()
 
 const { playBlip, playError } = useRetroSound()
@@ -19,11 +22,12 @@ const { playBlip, playError } = useRetroSound()
   <a
     v-if="!disabled"
     class="menu-card"
-    :class="{ 'menu-card--featured': featured }"
+    :class="{ 'menu-card--arrangeable': arrangeable, 'menu-card--dragging': dragging }"
     :style="{ '--accent': color }"
     :href="link"
     target="_blank"
     rel="noopener noreferrer"
+    draggable="false"
     @click="playBlip"
   >
     <div class="menu-card__icon m-sprite">
@@ -36,7 +40,7 @@ const { playBlip, playError } = useRetroSound()
   <div
     v-else
     class="menu-card menu-card--disabled"
-    :class="{ 'menu-card--featured': featured }"
+    :class="{ 'menu-card--arrangeable': arrangeable, 'menu-card--dragging': dragging }"
     :style="{ '--accent': color }"
     aria-disabled="true"
     @click="playError"
@@ -67,9 +71,20 @@ const { playBlip, playError } = useRetroSound()
   transition:
     transform var(--motion-base) var(--ease-flat),
     box-shadow var(--motion-base) var(--ease-flat);
-  min-height: 180px;
+  /*
+   * The grid gives every cell the same fixed height, so the card fills it. That
+   * is what makes a drag predictable: every slot is the same rectangle, so the
+   * card never has to grow or shrink as it moves between them.
+   */
+  height: 100%;
+  min-height: 0;
   text-decoration: none;
   color: inherit;
+  /* A card is a link, not a paragraph. Suppressing selection also suppresses the
+     mobile long-press callout that would otherwise fight the hold gesture. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .menu-card:hover {
@@ -151,6 +166,16 @@ const { playBlip, playError } = useRetroSound()
   font-size: 0.9rem;
   color: var(--text-medium);
   line-height: 1.5;
+  /*
+   * Four lines is what fits under the title at the grid's fixed card height.
+   * Every card is clamped to the same count, so no description can change the
+   * row height and the grid stays a perfect lattice at every breakpoint.
+   */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
 }
 
 .menu-card__badge {
@@ -168,32 +193,53 @@ const { playBlip, playError } = useRetroSound()
 }
 
 /*
- * Featured cards span the whole grid, so theirs is the one layout in the set
- * with room to lie down: icon, title, then the description running out along
- * the row. The breakpoint matches the span itself — below it the card is an
- * ordinary column and the stacked layout above is already right.
+ * Arrange mode. The whole grid jiggles, each card on a slightly different phase
+ * so the group reads as a restless surface rather than one synchronised element.
+ * That is the mobile home-screen cue the interaction is modelled on, and it is
+ * also the only signal on devices without haptics (iOS has no Vibration API).
  *
- * The title keeps its intrinsic width (`flex: none`) so the description takes
- * whatever is left over, and the icon sits still at 48px: the sprite inside it
- * is 32px of hand-authored pixel art, and scaling that to fill a larger tile
- * would land it off the pixel grid.
+ * Transform-only, 320ms, ±0.4deg: enough to read as a jitter, small enough that
+ * no card visibly leaves its slot. The phase offset comes from
+ * `--jiggle-delay`, which the grid sets per cell.
  */
-@media (min-width: 1024px) {
-  .menu-card--featured {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-xl);
-    padding: var(--space-xl);
-  }
+.menu-card--arrangeable {
+  animation: card-jiggle 320ms ease-in-out var(--jiggle-delay, 0s) infinite;
+  cursor: grab;
+}
 
-  .menu-card--featured .menu-card__title {
-    flex: none;
-    font-size: 1.4rem;
-  }
+/* The hover lift is gone in arrange mode; the jiggle owns the transform. */
+.menu-card--arrangeable:hover,
+.menu-card--arrangeable:active {
+  transform: none;
+  box-shadow: var(--glass-shadow);
+}
 
-  .menu-card--featured .menu-card__description {
-    flex: 1;
-    max-width: 62ch;
+.menu-card--arrangeable:hover .menu-card__icon {
+  transform: none;
+}
+
+/*
+ * The card under the finger. The cell around it is translated by the composable;
+ * this is the card's own state. `animation: none` is deliberate — it hands the
+ * transform back so the scale can take it, and holds the card still while it is
+ * being placed. 1.02 is the design.md ceiling.
+ */
+.menu-card--dragging,
+.menu-card--arrangeable.menu-card--dragging,
+.menu-card--dragging:hover {
+  animation: none;
+  cursor: grabbing;
+  transform: scale(1.02);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.14);
+}
+
+@keyframes card-jiggle {
+  0%,
+  100% {
+    transform: rotate(-0.4deg);
+  }
+  50% {
+    transform: rotate(0.4deg);
   }
 }
 </style>

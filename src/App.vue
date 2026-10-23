@@ -5,6 +5,7 @@ import { recordVisit } from './composables/useVisitLogger'
 import { useViewMode } from './composables/useViewMode'
 import { VIEW_MODE_COPY } from './data/viewModes'
 import { loadGsap, prefersReducedMotion } from './utils/motion'
+import { useCardReorder } from './composables/useCardReorder'
 import MenuCard from './components/MenuCard.vue'
 import CloudflareEdgeStatus from './components/CloudflareEdgeStatus.vue'
 import LatencyIndicator from './components/LatencyIndicator.vue'
@@ -52,7 +53,6 @@ interface MenuItem {
   color: string
   link: string
   disabled: boolean
-  featured?: boolean
 }
 
 const menuItems: MenuItem[] = [
@@ -103,7 +103,6 @@ const menuItems: MenuItem[] = [
     color: 'var(--yellow-main)',
     link: 'https://freyana.aryaptrha.fun',
     disabled: false,
-    featured: true,
   },
   {
     title: 'Basic CRUD Fullstack App',
@@ -130,6 +129,46 @@ const menuItems: MenuItem[] = [
     disabled: false,
   },
 ]
+
+/*
+ * The grid renders this, not `menuItems`. It starts as a copy and a drag rewrites
+ * it, so the order is editable for the life of the page. Nothing is persisted:
+ * reloading restores the authored order, which is the stated behaviour — a
+ * visitor can rearrange what they are looking at, not redesign the site.
+ *
+ * The copy is shallow on purpose. A `MenuItem` holds an icon component, and
+ * cloning that is neither possible nor wanted; only the array order changes.
+ */
+const orderedItems = ref<MenuItem[]>([...menuItems])
+const gridRef = ref<HTMLElement | null>(null)
+
+/*
+ * Click capture is bound on the grid, not on each card: in arrange mode a click
+ * is the tail of a drag and must not open the project. Capturing it at the
+ * container means the card's own `<a href>` and its sound handler never see it.
+ */
+const {
+  isArmed,
+  isDragging,
+  activeKey,
+  onPointerDown,
+  onClickCapture,
+  onContextMenu,
+  exit: exitReorder,
+} = useCardReorder(orderedItems, (item) => item.title, gridRef)
+
+/*
+ * `m-cascade` animates the cells' `transform` on arrival. A hold can land while
+ * the last card is still in its stagger (450ms hold vs. a 520ms full cascade),
+ * and a running CSS animation wins over the inline transform a drag writes. So
+ * the entrance is a one-shot: the first time arrange mode opens, the class is
+ * dropped for good. It does not come back on exit — replaying the arrival every
+ * time the visitor finishes rearranging would read as a page reload.
+ */
+const hasArranged = ref(false)
+watch(isArmed, (armed) => {
+  if (armed) hasArranged.value = true
+})
 
 /*
  * design.md's motion budget is 150-200ms and rules out bounce; auto-animate defaults to
@@ -301,11 +340,39 @@ onMounted(() => {
     <!-- Main Projects View -->
     <main class="landing__content">
       <section class="view-section">
-        <div class="landing__grid m-cascade" role="list">
+        <!--
+          `data-reorder-key` and the per-cell classes are the contract with
+          `useCardReorder`: it finds cells by the attribute, measures them for the
+          FLIP, and sets `--jiggle-delay` here so the jiggle phases differ. The key
+          is the title because it is the one stable identity the data has — an
+          index would change under a reorder and Vue would re-render instead of
+          moving the nodes, taking the drag out from under the pointer.
+
+          The three handlers are bound once on the container: a pointerdown starts
+          a hold anywhere on a card, click capture suppresses navigation while
+          arranging, and contextmenu is stopped only for a pending/active hold so
+          a normal right-click still works.
+        -->
+        <div
+          ref="gridRef"
+          class="landing__grid"
+          :class="{
+            'm-cascade': !hasArranged,
+            'landing__grid--armed': isArmed,
+            'landing__grid--dragging': isDragging,
+          }"
+          role="list"
+          @pointerdown="onPointerDown"
+          @click.capture="onClickCapture"
+          @contextmenu="onContextMenu"
+        >
           <div
-            v-for="(item, index) in menuItems"
-            :key="index"
-            :class="{ 'landing__cell--featured': item.featured }"
+            v-for="item in orderedItems"
+            :key="item.title"
+            class="landing__cell"
+            :class="{ 'landing__cell--active': activeKey === item.title }"
+            :data-reorder-key="item.title"
+            role="listitem"
           >
             <MenuCard
               :title="item.title"
@@ -314,11 +381,34 @@ onMounted(() => {
               :color="item.color"
               :link="item.link"
               :disabled="item.disabled"
-              :featured="item.featured"
-              role="listitem"
+              :arrangeable="isArmed"
+              :dragging="activeKey === item.title"
             />
           </div>
         </div>
+
+        <!--
+          Arrange mode's only chrome. It exists for two reasons: it explains a
+          gesture that has no visible affordance until you find it, and it gives
+          touch users a guaranteed way out — the other exits (Escape, pressing the
+          page outside the grid) are not available or not discoverable on a phone.
+          `data-reorder-keep` tells the composable's outside-press handler that a
+          press here belongs to the pill, not to the dismissal.
+        -->
+        <Transition name="reorder-bar">
+          <div
+            v-if="isArmed"
+            class="reorder-bar"
+            data-reorder-keep
+            role="status"
+            aria-live="polite"
+          >
+            <span class="reorder-bar__label">Drag to rearrange</span>
+            <button type="button" class="reorder-bar__done" @click="exitReorder">
+              Done
+            </button>
+          </div>
+        </Transition>
 
         <!--
           Heavy below-the-fold sections lazy loaded with zero-CLS skeleton fallback.
@@ -558,9 +648,56 @@ onMounted(() => {
  * than trailing further.
  */
 .landing__grid {
+  /*
+   * One fixed height for every slot, at every breakpoint. Equal widths were
+   * already enforced by the column template; equal heights are what make the
+   * reorder feel like moving tiles rather than reflowing a document. The height
+   * budgets the card's contents: 48px of padding, a 48px icon tile, 32px of
+   * gaps, a title (two lines on the narrowest phones) and the four-line clamped
+   * description.
+   */
+  --card-height: 272px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-auto-rows: var(--card-height);
   gap: var(--space-lg);
+}
+
+.landing__cell {
+  min-width: 0;
+  position: relative;
+}
+
+/* A lifted card has to paint above the neighbours it is crossing. */
+.landing__cell--active {
+  z-index: 3;
+}
+
+/*
+ * Arrange mode. The cells carry only the phase offset; the jiggle itself lives
+ * in MenuCard, because it is the card's own visual state. Offsetting three of
+ * every five slots is enough to break the synchronisation without making the
+ * grid look like it is falling apart.
+ */
+.landing__grid--armed {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.landing__grid--armed .landing__cell:nth-child(2n) {
+  --jiggle-delay: -0.16s;
+}
+
+.landing__grid--armed .landing__cell:nth-child(3n) {
+  --jiggle-delay: -0.08s;
+}
+
+.landing__grid--armed .landing__cell:nth-child(5n) {
+  --jiggle-delay: -0.24s;
+}
+
+.landing__grid--dragging {
+  cursor: grabbing;
 }
 
 .grid-spacing {
@@ -583,7 +720,9 @@ onMounted(() => {
  * Bounded above, and that bound is the point: at three columns an odd count no
  * longer means a lone last card, so the same span would take a row the grid
  * had already filled and shove one card past it. One column cannot strand a
- * card at all, which is why the base grid needs none of this either.
+ * card at all, which is why the base grid needs none of this either. Every
+ * row is the same height now, so this centred cell is a tile of exactly one
+ * card's size.
  */
 @media (min-width: 768px) and (max-width: 1023px) {
   .landing__grid > :last-child:nth-child(odd) {
@@ -597,16 +736,67 @@ onMounted(() => {
   .landing__grid {
     grid-template-columns: repeat(3, 1fr);
   }
+}
 
-  /*
-   * The featured card takes a row to itself, which at three columns is the row
-   * the other six would otherwise have left two-thirds empty: three cards,
-   * the video, then three more. Deliberately desktop-only — at two columns the
-   * same span would strand a gap behind it, and the card is already full
-   * width at one.
-   */
-  .landing__cell--featured {
-    grid-column: 1 / -1;
-  }
+/*
+ * Arrange mode's floating pill. Fixed rather than in the grid so it stays put
+ * while the page scrolls under a drag, and centred along the bottom, which is
+ * the one edge the fixed widgets do not already own.
+ */
+.reorder-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 1002;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 8px 8px 8px 20px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: var(--radius-badge);
+  box-shadow: var(--glass-shadow);
+  transform: translateX(-50%);
+  font-size: 0.9rem;
+  color: var(--text-medium);
+  white-space: nowrap;
+}
+
+.reorder-bar__done {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1.5px solid var(--blue-main);
+  border-radius: var(--radius-badge);
+  background: var(--blue-light);
+  color: var(--text-dark);
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-flat);
+}
+
+.reorder-bar__done:hover {
+  background: var(--blue-main);
+}
+
+.reorder-bar__done:focus-visible {
+  outline: 2px solid var(--blue-main);
+  outline-offset: 2px;
+}
+
+.reorder-bar-enter-active,
+.reorder-bar-leave-active {
+  transition:
+    opacity var(--motion-fast) var(--ease-settle),
+    transform var(--motion-fast) var(--ease-settle);
+}
+
+.reorder-bar-enter-from,
+.reorder-bar-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
 }
 </style>
