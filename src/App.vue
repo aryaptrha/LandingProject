@@ -128,6 +128,22 @@ const menuItems: MenuItem[] = [
     link: 'https://mdreader.aryaptrha.fun',
     disabled: false,
   },
+  {
+    title: 'PaceQuest',
+    description: 'A marathon training app for my journey to the JAKIM Marathon in June 2027. Built with Astro and refined through review with Claude AI.',
+    icon: IconMobile,
+    color: 'var(--blue-light)',
+    link: 'https://pacequest.aryaptrha.fun',
+    disabled: false,
+  },
+  {
+    title: 'Coder',
+    description: 'An app for looking the part of a pro coder. Built with Vite and React.',
+    icon: IconBackend,
+    color: 'var(--lavender-light)',
+    link: 'https://coder.aryaptrha.fun',
+    disabled: false,
+  },
 ]
 
 /*
